@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from app.db.session import SessionLocal
 from app.models.property import Property
 from app.clients.building_api import get_building_title_info
-from app.clients.registry_api import fetch_registry
+from app.clients.registry_api import get_registry_info
 from app.services.vector_db import upsert_property_docs
 
 # 라우터 생성

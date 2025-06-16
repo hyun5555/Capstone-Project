@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.endpoints import auth, property, users, building, registry, vector, \
-    analyze, chatbot, jeonse_price, address, trade_price, transaction_summary, jeonse_rate, risk_score
+    analyze, chatbot, jeonse_price, address, trade_price, transaction_summary, jeonse_rate, codef_auth, risk_score
 from app.db.session import engine, Base  # init_db 대신 engine, Base를 가져옵니다
 
 app = FastAPI()
@@ -44,4 +44,5 @@ app.include_router(trade_price.router)
 app.include_router(address.router)
 app.include_router(transaction_summary.router, tags=["Transaction Summary"])
 app.include_router(jeonse_rate.router, tags=["Rent Rate"])
+app.include_router(codef_auth.router, prefix="/codef", tags=["CODEF 인증"])
 #app.include_router(risk_score.router, tags=["Risk Score"])
