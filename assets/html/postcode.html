@@ -10,12 +10,12 @@
             height: 100%;
             margin: 0;
             padding: 0;
-            overflow-x: hidden;
             box-sizing: border-box;
         }
         #wrap {
             width: 100%;
             height: 100%;
+            overflow: hidden;
         }
         iframe {
             width: 100% !important;
@@ -29,41 +29,28 @@
 </head>
 <body>
 <div id="wrap"></div>
+
 <script>
-    window.onload = function () {
+    window.onload = function() {
         new daum.Postcode({
-            oncomplete: function (data) {
-                const fullAddress = data.roadAddress || data.jibunAddress;
-
-                let mainAddressNo = '';
-                let subAddressNo = '0';
-
-                const jibunMatch = data.jibunAddress?.match(/(\d+-\d+|\d+)$/); // 지번 끝 숫자만
-                if (jibunMatch) {
-                    const parts = jibunMatch[0].split('-');
-                    mainAddressNo = parts[0];
-                    if (parts.length > 1) {
-                        subAddressNo = parts[1];
-                    }
-                }
-
+            width: '100%',
+            height: '100%',
+            animation: false,
+            oncomplete: function(data) {
                 const result = {
-                    fullAddress: fullAddress,
+                    fullAddress: data.roadAddress || data.jibunAddress,
                     bcode: data.bcode,
-                    mainAddressNo: mainAddressNo,
-                    subAddressNo: subAddressNo,
-                    jibun: data.jibunAddress,
-                    buildingCode: data.buildingCode || ''
+                    roadName: data.roadName,
+                    mainAddressNo: data.buldMnnm,
+                    subAddressNo: data.buldSlno === '0' ? '' : data.buldSlno,
+                    buildingCode: data.buildingCode
                 };
-
                 if (window.flutter_inappwebview) {
                     window.flutter_inappwebview.callHandler('onComplete', JSON.stringify(result));
                 }
-            },
-            width: '100%',
-            height: '100%'
+            }
         }).embed(document.getElementById('wrap'));
-    };
+    }
 </script>
 </body>
 </html>

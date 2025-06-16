@@ -36,19 +36,43 @@ class _AddressSearchPageState extends State<AddressSearchPage> {
       body: _localhostServer.isRunning()
           ? InAppWebView(
         initialUrlRequest: URLRequest(
-          url: WebUri("http://localhost:8080/assets/html/postcode.html"),
-        ),
-        initialOptions: InAppWebViewGroupOptions(
-          crossPlatform: InAppWebViewOptions(
-            javaScriptEnabled: true,
-          ),
-        ),
+            url: WebUri("http://localhost:8080/assets/html/postcode.html")),
         onWebViewCreated: (controller) {
           controller.addJavaScriptHandler(
             handlerName: 'onComplete',
             callback: (args) {
-              final data = jsonDecode(args.first);
-              Navigator.pop(context, data);
+              final raw = jsonDecode(args.first);
+              final fullAddress = raw['fullAddress'];
+              final bcode = raw['bcode'];
+
+              // 본번, 부번 추출
+              String mainNo = '0';
+              String subNo = '0';
+              final lastPart = fullAddress.split(' ').last;
+              final numberParts = lastPart.split('-');
+              mainNo = numberParts[0].replaceAll(RegExp(r'[^0-9]'), '');
+              if (numberParts.length > 1) {
+                subNo = numberParts[1].replaceAll(RegExp(r'[^0-9]'), '');
+              }
+
+              // 도로명 추출
+              final addressParts = fullAddress.split(' ');
+              String roadName = '';
+              if (addressParts.length >= 4) {
+                roadName = '${addressParts[2]} ${addressParts[3]}';
+              } else if (addressParts.length >= 3) {
+                roadName = addressParts[2];
+              }
+
+              final result = {
+                'fullAddress': fullAddress,
+                'roadName': roadName,
+                'bcode': bcode,
+                'mainAddressNo': mainNo,
+                'subAddressNo': subNo
+              };
+
+              Navigator.pop(context, result);
             },
           );
         },

@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:capstone_project/screens/address_search.dart';
 import 'package:http/http.dart' as http;
+import 'package:capstone_project/screens/address_search.dart';
+import 'package:capstone_project/screens/risk_result.dart';
 
 class RiskAnalysisPage extends StatefulWidget {
   const RiskAnalysisPage({super.key});
@@ -30,61 +31,113 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
     super.dispose();
   }
 
-  Future<void> sendAddressAndPrice(String fullAddress, int price) async {
-    final url = Uri.parse('http://113.198.66.75:10010/risk/address'); // Python 서버 주소
+  Future<void> sendAddressAndPrice() async {
+    if (selectedAddressData == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("주소를 먼저 선택해 주세요.")),
+      );
+      return;
+    }
+
+    final url = Uri.parse('http://10.0.2.2:8000/building/title-info');
+    final requestBody = {
+      'fullAddress': selectedAddressData!['fullAddress'],
+      'roadName': selectedAddressData!['roadName'],
+      'bcode': selectedAddressData!['bcode'],
+      'mainAddressNo': selectedAddressData!['mainAddressNo'],
+      'subAddressNo': selectedAddressData!['subAddressNo'] ?? '0',
+      'price': int.tryParse(priceController.text.replaceAll(',', '')) ?? 0,
+    };
 
     try {
-      await http.post(
+      final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'full_address': fullAddress,
-          'price': price,
-        }),
+        body: jsonEncode(requestBody),
       );
-      print('주소와 가격 전송 완료: $fullAddress / $price');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseBody = jsonDecode(utf8.decode(response.bodyBytes));
+        print("응답 전체: $responseBody");
+
+        final docNo = responseBody['resDocNo'] ?? '없음';
+        final resAddr = responseBody['resUserAddr']?.replaceAll('+', ' ') ?? '없음';
+
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("건축물 표제부 상세정보"),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 일반 정보 출력
+                  Text("문서번호: ${responseBody['resDocNo'] ?? '없음'}"),
+                  Text("주소: ${(responseBody['resUserAddr'] ?? '없음').toString().replaceAll('+', ' ')}"),
+                  Text("발급일자: ${responseBody['resIssueDate'] ?? '없음'}"),
+                  const SizedBox(height: 12),
+
+                  const Text("▶ 상세정보", style: TextStyle(fontWeight: FontWeight.bold)),
+
+                  // resDetailList 출력
+                  if (responseBody['resDetailList'] != null)
+                    ...List<Widget>.from(
+                      (responseBody['resDetailList'] as List).map((item) => Text(
+                          "${item['resType']}: ${item['resContents'].toString().replaceAll('+', ' ')}")),
+                    ),
+
+                  const SizedBox(height: 12),
+                  const Text("▶ 층별현황", style: TextStyle(fontWeight: FontWeight.bold)),
+
+                  if (responseBody['resBuildingStatusList'] != null)
+                    ...List<Widget>.from(
+                      (responseBody['resBuildingStatusList'] as List).map((item) => Text(
+                          "${item['resFloor']}: ${item['resUseType']} (${item['resArea']}㎡)")),
+                    ),
+
+                  const SizedBox(height: 12),
+                  const Text("▶ 소유자 정보", style: TextStyle(fontWeight: FontWeight.bold)),
+
+                  if (responseBody['resOwnerList'] != null)
+                    ...List<Widget>.from(
+                      (responseBody['resOwnerList'] as List).map((item) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("소유자: ${item['resOwner']}"),
+                          Text("주소: ${item['resUserAddr'].toString().replaceAll('+', ' ')}"),
+                          Text("지분: ${item['resOwnershipStake']}"),
+                          const SizedBox(height: 6),
+                        ],
+                      )),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RiskResultPage(),
+                    ),
+                  );
+                },
+                child: const Text("확인"),
+              ),
+            ],
+          ),
+        );
+      } else {
+        print("서버 오류: ${response.statusCode}");
+      }
     } catch (e) {
-      print('주소와 가격 전송 실패: $e');
+      print("통신 오류: $e");
     }
   }
-
-
   void _onAnalyzePressed() {
-    final fullAddress = '${addressController.text} ${detailAddressController.text}';
-    final bcode = selectedAddressData?['bcode'] ?? '없음';
-    final mainNo = selectedAddressData?['mainAddressNo'] ?? '없음';
-    final subNo = selectedAddressData?['subAddressNo'] ?? '없음';
-    final price = int.tryParse(priceController.text.replaceAll(',', '')) ?? 0;
-
-    sendAddressAndPrice(fullAddress, price);
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('분석 요청 정보'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('주소: $fullAddress'),
-            Text('법정동코드: $bcode'),
-            Text('본번: $mainNo'),
-            Text('부번: $subNo'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, '/risk_result');
-            },
-            child: const Text('확인'),
-          )
-        ],
-      ),
-    );
-
+    sendAddressAndPrice();
   }
 
   @override
@@ -141,7 +194,7 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
                 if (selected != null) {
                   setState(() {
                     selectedAddressData = selected;
-                    addressController.text = selected['fullAddress'] ?? '';
+                    addressController.text = selected['fullAddress'];
                   });
                 }
               },
