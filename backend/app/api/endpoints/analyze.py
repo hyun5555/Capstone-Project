@@ -2,29 +2,33 @@ from fastapi import APIRouter
 from app.schemas.analyze import AnalyzeRequest, AnalyzeResponse
 from app.clients.registry_api import get_registry_info
 from app.clients.building_api import get_building_title_info
-#from app.services.sllm_model import extract_metadata
-#from app.services.vector_db import store_metadata
+from app.services.sllm_model import extract_fields, compare_flags_gpt4, generate_explanations, compile_report
 
 router = APIRouter()
 
 @router.post("/analyze/", response_model=AnalyzeResponse)
-def analyze_property(data: AnalyzeRequest):
-    registry_data = get_registry_info(data.address)
-    building_data = get_building_title_info(data.address)
+async def analyze_property(data: AnalyzeRequest):
+    # 1. 등기부 / 건축물대장 데이터 불러오기
+    registry_data = await get_registry_info(data.address)
+    building_data = await get_building_title_info(data.address)
 
-    raw_text = f"""
-    [등기부등본]
-    소유자: {registry_data['owner']}
-    근저당: {registry_data['mortgage']}
-    임대인 정보: {registry_data['lessor']}
+    # 2. 텍스트 가공 (추출된 문장 형태)
+    reg_text = f"소유자: {registry_data['owner']}, 용도: {registry_data['usage']}, 구조: {registry_data['structure']}, 전용면적: {registry_data['area']}, 채권최고액: {registry_data['mortgage']}, 권리: {registry_data.get('rights', '없음')}"
+    bld_text = f"소유자: {building_data['owner']}, 용도: {building_data['usage']}, 구조: {building_data['structure']}, 전용면적: {building_data['area']}, 채권최고액: 없음, 권리: 없음"
 
-    [건축물대장]
-    건축물 용도: {building_data['usage']}
-    준공일: {building_data['completion']}
-    구조: {building_data['structure']}
-    """
+    # 3. 필드 추출
+    reg_fields = extract_fields(reg_text)
+    bld_fields = extract_fields(bld_text)
 
-    summary = extract_metadata(raw_text)
-    #store_metadata(data.address, summary)
+    # 4. GPT-4 분석
+    flags = compare_flags_gpt4(reg_fields, bld_fields)
+    explanations = generate_explanations(flags, reg_fields, bld_fields)
+    report = compile_report("case_001", data.address, flags, explanations)
 
-    return AnalyzeResponse(address=data.address, summary=summary)
+    # 5. 결과 반환
+    return AnalyzeResponse(
+        address=data.address,
+        flags=flags,
+        explanations=explanations,
+        report=report
+    )
