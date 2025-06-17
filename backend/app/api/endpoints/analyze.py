@@ -15,8 +15,9 @@ router = APIRouter()
 
 @router.post("/")
 async def analyze_property(data: AnalyzeRequest):
-    BASE_DIR = Path(__file__).resolve().parent.parent
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent  # → backend 폴더
     registry_path = BASE_DIR / "registry.json"
+
 
     if not registry_path.exists():
         raise FileNotFoundError(f"등기부 JSON 파일이 없습니다: {registry_path}")
