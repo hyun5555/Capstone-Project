@@ -15,8 +15,8 @@ router = APIRouter()
 
 @router.post("/")
 async def analyze_property(data: AnalyzeRequest):
-    BASE_DIR = Path(__file__).resolve().parent.parent.parent  # → backend 폴더
-    registry_path = BASE_DIR / "registry.json"
+    registry_path = Path("/home/ubuntu/Capstone-Project/backend/registry.json")
+
 
 
     if not registry_path.exists():
