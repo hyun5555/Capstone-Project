@@ -1,3 +1,4 @@
+// lib/screens/risk_result.dart
 import 'package:capstone_project/screens/risk_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:capstone_project/services/api_service.dart';
@@ -46,20 +47,22 @@ class _RiskResultPageState extends State<RiskResultPage> {
 
   Future<void> loadAnalysisResult() async {
     final result = await ApiService.analyzeJeonseRisk("서울 강남구 역삼동 123-45");
+
     if (result['success']) {
       final data = result['data'];
       setState(() {
-        riskScore = data['report']['overall_score'];
-        riskDetails = List<Map<String, dynamic>>.from(data['report']['risk_items']);
+        riskScore = data['risk_score'];
+        riskDetails = List<Map<String, dynamic>>.from(data['risk_items']);
         isLoading = false;
       });
     } else {
       setState(() {
         isLoading = false;
       });
-      print(result['message']);
+      print("❌ 위험도 분석 실패: ${result['message']}");
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
