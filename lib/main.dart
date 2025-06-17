@@ -64,7 +64,11 @@ class MyApp extends StatelessWidget {
           themeColor: Colors.white,
           explanation: '리포트 설명 예시입니다.',
         ),
-        '/risk_result': (ctx) => RiskResultPage(),
+        '/risk_result': (ctx) => RiskResultPage(
+          address: '서울 강남구 역삼동 123-45',
+          deposit: 100000000,
+          marketPrice: 200000000,
+        ),
       },
     );
   }

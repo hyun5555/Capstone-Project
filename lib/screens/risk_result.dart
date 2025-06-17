@@ -5,11 +5,21 @@ import 'package:capstone_project/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RiskResultPage extends StatefulWidget {
-  const RiskResultPage({super.key});
+  final String address;
+  final int deposit;
+  final int marketPrice;
+
+  const RiskResultPage({
+    super.key,
+    required this.address,
+    required this.deposit,
+    required this.marketPrice,
+  });
 
   @override
   State<RiskResultPage> createState() => _RiskResultPageState();
 }
+
 
 class _RiskResultPageState extends State<RiskResultPage> {
   int riskScore = 0;
@@ -46,20 +56,24 @@ class _RiskResultPageState extends State<RiskResultPage> {
   }
 
   Future<void> loadAnalysisResult() async {
-    final result = await ApiService.analyzeJeonseRisk("서울 강남구 역삼동 123-45");
+    final result = await ApiService.analyzeJeonseRisk(
+      address: widget.address,
+      deposit: widget.deposit,
+      marketPrice: widget.marketPrice,
+    );
 
     if (result['success']) {
       final data = result['data'];
       setState(() {
-        riskScore = data['risk_score'];
-        riskDetails = List<Map<String, dynamic>>.from(data['risk_items']);
+        riskScore = data['report']['overall_score'];
+        riskDetails = List<Map<String, dynamic>>.from(data['report']['risk_items']);
         isLoading = false;
       });
     } else {
       setState(() {
         isLoading = false;
       });
-      print("❌ 위험도 분석 실패: ${result['message']}");
+      print(result['message']);
     }
   }
 

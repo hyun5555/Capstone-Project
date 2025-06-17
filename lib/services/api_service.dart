@@ -138,12 +138,21 @@ class ApiService {
 
 
 
-  static Future<Map<String, dynamic>> analyzeJeonseRisk(String address) async {
+  // ✅ lib/services/api_service.dart 수정
+  static Future<Map<String, dynamic>> analyzeJeonseRisk({
+    required String address,
+    required int deposit,
+    required int marketPrice,
+  }) async {
     final url = Uri.parse("$_baseUrl/analyze/");
     final response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"address": address}),
+      body: jsonEncode({
+        "address": address,
+        "deposit": deposit,
+        "market_price": marketPrice,
+      }),
     );
 
     if (response.statusCode == 200) {

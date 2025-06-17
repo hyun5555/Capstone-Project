@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:capstone_project/screens/address_search.dart';
 import 'package:capstone_project/screens/risk_result.dart';
+import 'package:capstone_project/services/api_service.dart';
 
 class RiskAnalysisPage extends StatefulWidget {
   const RiskAnalysisPage({super.key});
@@ -40,7 +41,7 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
       return;
     }
 
-    final url = Uri.parse('http://10.0.2.2:8000/building/title-info');
+    final buildingUrl = Uri.parse('http://10.0.2.2:8000/building/title-info');
     final requestBody = {
       'fullAddress': selectedAddressData!['fullAddress'],
       'roadName': selectedAddressData!['roadName'],
@@ -51,19 +52,16 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
     };
 
     try {
-      final response = await http.post(
-        url,
+      final buildingResp = await http.post(
+        buildingUrl,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseBody = jsonDecode(utf8.decode(response.bodyBytes));
-        print("응답 전체: $responseBody");
+      if (buildingResp.statusCode == 200) {
+        final buildingData = jsonDecode(utf8.decode(buildingResp.bodyBytes));
 
-        final docNo = responseBody['resDocNo'] ?? '없음';
-        final resAddr = responseBody['resUserAddr']?.replaceAll('+', ' ') ?? '없음';
-
+        // 🔹 건축물 정보 팝업
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
@@ -72,36 +70,30 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 일반 정보 출력
-                  Text("문서번호: ${responseBody['resDocNo'] ?? '없음'}"),
-                  Text("주소: ${(responseBody['resUserAddr'] ?? '없음').toString().replaceAll('+', ' ')}"),
-                  Text("발급일자: ${responseBody['resIssueDate'] ?? '없음'}"),
+                  Text("문서번호: ${buildingData['resDocNo'] ?? '없음'}"),
+                  Text("주소: ${(buildingData['resUserAddr'] ?? '없음').toString().replaceAll('+', ' ')}"),
+                  Text("발급일자: ${buildingData['resIssueDate'] ?? '없음'}"),
                   const SizedBox(height: 12),
-
                   const Text("▶ 상세정보", style: TextStyle(fontWeight: FontWeight.bold)),
-
-                  // resDetailList 출력
-                  if (responseBody['resDetailList'] != null)
+                  if (buildingData['resDetailList'] != null)
                     ...List<Widget>.from(
-                      (responseBody['resDetailList'] as List).map((item) => Text(
-                          "${item['resType']}: ${item['resContents'].toString().replaceAll('+', ' ')}")),
+                      (buildingData['resDetailList'] as List).map((item) => Text(
+                        "${item['resType']}: ${item['resContents'].toString().replaceAll('+', ' ')}",
+                      )),
                     ),
-
                   const SizedBox(height: 12),
                   const Text("▶ 층별현황", style: TextStyle(fontWeight: FontWeight.bold)),
-
-                  if (responseBody['resBuildingStatusList'] != null)
+                  if (buildingData['resBuildingStatusList'] != null)
                     ...List<Widget>.from(
-                      (responseBody['resBuildingStatusList'] as List).map((item) => Text(
-                          "${item['resFloor']}: ${item['resUseType']} (${item['resArea']}㎡)")),
+                      (buildingData['resBuildingStatusList'] as List).map((item) => Text(
+                        "${item['resFloor']}: ${item['resUseType']} (${item['resArea']}㎡)",
+                      )),
                     ),
-
                   const SizedBox(height: 12),
                   const Text("▶ 소유자 정보", style: TextStyle(fontWeight: FontWeight.bold)),
-
-                  if (responseBody['resOwnerList'] != null)
+                  if (buildingData['resOwnerList'] != null)
                     ...List<Widget>.from(
-                      (responseBody['resOwnerList'] as List).map((item) => Column(
+                      (buildingData['resOwnerList'] as List).map((item) => Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text("소유자: ${item['resOwner']}"),
@@ -116,27 +108,55 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
             ),
             actions: [
               TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RiskResultPage(),
-                    ),
-                  );
-                },
                 child: const Text("확인"),
+                onPressed: () async {
+                  Navigator.pop(context); // 팝업 닫기
+
+                  final deposit = int.tryParse(priceController.text.replaceAll(',', '')) ?? 0;
+
+                  // 🔹 분석 API 호출
+                  final analysisResp = await ApiService.analyzeJeonseRisk(
+                    address: selectedAddressData!['fullAddress'],
+                    deposit: deposit,
+                    marketPrice: 1000000000, // 시세 추후 교체
+                  );
+
+                  if (analysisResp['success']) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RiskResultPage(
+                          address: selectedAddressData!['fullAddress'],
+                          deposit: deposit,
+                          marketPrice: 1000000000,
+                        ),
+                      ),
+                    );
+                  } else {
+                    print("❌ 분석 실패: ${analysisResp['message']}");
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("위험도 분석 실패: ${analysisResp['message']}")),
+                    );
+                  }
+                },
               ),
             ],
           ),
         );
       } else {
-        print("서버 오류: ${response.statusCode}");
+        print("❌ 서버 오류 (건축물): ${buildingResp.statusCode}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("건축물 정보 조회 실패")),
+        );
       }
     } catch (e) {
-      print("통신 오류: $e");
+      print("❌ 통신 오류: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("통신 오류: $e")),
+      );
     }
   }
+
   void _onAnalyzePressed() {
     sendAddressAndPrice();
   }
