@@ -138,5 +138,27 @@ class ApiService {
 
 
 
+  static Future<Map<String, dynamic>> analyzeJeonseRisk(String address) async {
+    final url = Uri.parse("$_baseUrl/analyze/");
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"address": address}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      return {"success": true, "data": data};
+    } else {
+      return {
+        "success": false,
+        "message": "분석 실패 (${response.statusCode})"
+      };
+    }
+  }
+
+
+
+
 
 }

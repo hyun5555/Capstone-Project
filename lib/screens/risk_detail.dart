@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 class RiskDetailPage extends StatelessWidget {
   final String title;
   final int score;
+  final String explanation;
   final Color themeColor;
 
   const RiskDetailPage({
     super.key,
     required this.title,
     required this.score,
+    required this.explanation,
     required this.themeColor,
   });
 
@@ -57,11 +59,13 @@ class RiskDetailPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             const SizedBox(height: 40),
-            const Align(
+
+            /// 여기에 설명 추가
+            Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '※ 리포트 내용은 샘플입니다.\n향후 실제 분석 데이터를 기반으로 리포트가 생성됩니다.',
-                style: TextStyle(fontSize: 14, height: 1.6),
+                explanation,
+                style: const TextStyle(fontSize: 14, height: 1.6),
               ),
             ),
           ],

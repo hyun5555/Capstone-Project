@@ -1,38 +1,69 @@
 import 'package:capstone_project/screens/risk_detail.dart';
 import 'package:flutter/material.dart';
+import 'package:capstone_project/services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class RiskResultPage extends StatelessWidget {
+class RiskResultPage extends StatefulWidget {
   const RiskResultPage({super.key});
 
   @override
+  State<RiskResultPage> createState() => _RiskResultPageState();
+}
+
+class _RiskResultPageState extends State<RiskResultPage> {
+  int riskScore = 0;
+  String userName = '';  // 사용자 이름
+  List<Map<String, dynamic>> riskDetails = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUserInfo();         // 사용자 이름 불러오기
+    loadAnalysisResult();    // 위험도 분석 결과 불러오기
+  }
+
+  Future<void> fetchUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedEmail = prefs.getString("email") ?? "";
+    final token = prefs.getString("token") ?? "";
+
+    if (storedEmail.isEmpty || token.isEmpty) {
+      print("❌ 저장된 이메일 또는 토큰이 없습니다.");
+      return;
+    }
+
+    final result = await ApiService.getUserByEmail(storedEmail, token);
+    if (result["success"] == true) {
+      final data = result["data"];
+      setState(() {
+        userName = data["username"] ?? "알 수 없음";
+      });
+    } else {
+      print("❌ 사용자 이름 불러오기 실패: ${result["message"]}");
+    }
+  }
+
+  Future<void> loadAnalysisResult() async {
+    final result = await ApiService.analyzeJeonseRisk("서울 강남구 역삼동 123-45");
+    if (result['success']) {
+      final data = result['data'];
+      setState(() {
+        riskScore = data['report']['overall_score'];
+        riskDetails = List<Map<String, dynamic>>.from(data['report']['risk_items']);
+        isLoading = false;
+      });
+    } else {
+      setState(() {
+        isLoading = false;
+      });
+      print(result['message']);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const int riskScore = 70; // 예시 점수
-    const String userName = "김OO"; // 예시 사용자 이름
-
     final Color themeColor = getRiskColor(riskScore);
-
-    final List<Map<String, dynamic>> riskDetails = [
-      {
-        'title': '소유권 관련 위험',
-        'score': 80,
-      },
-      {
-        'title': '기존 전세권 및 임차권 위험',
-        'score': 60,
-      },
-      {
-        'title': '근저당권 설정 위험',
-        'score': 50,
-      },
-      {
-        'title': '깡통 주택 위험도',
-        'score': 65,
-      },
-      {
-        'title': '건축물 적법성 위험',
-        'score': 40,
-      },
-    ];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -50,7 +81,9 @@ class RiskResultPage extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,7 +121,6 @@ class RiskResultPage extends StatelessWidget {
                             color: themeColor,
                           ),
                         ),
-                        const SizedBox(height: 8),
                       ],
                     ),
                   ],
@@ -112,6 +144,7 @@ class RiskResultPage extends StatelessWidget {
                   .map((risk) => _buildRiskReportItem(
                 title: risk['title'],
                 score: risk['score'],
+                explanation: risk['explanation'] ?? '설명이 없습니다.',
                 themeColor: themeColor,
                 onTap: () {
                   Navigator.push(
@@ -120,6 +153,7 @@ class RiskResultPage extends StatelessWidget {
                       builder: (_) => RiskDetailPage(
                         title: risk['title'],
                         score: risk['score'],
+                        explanation: risk['explanation'] ?? '',
                         themeColor: themeColor,
                       ),
                     ),
@@ -177,6 +211,7 @@ class RiskResultPage extends StatelessWidget {
   Widget _buildRiskReportItem({
     required String title,
     required int score,
+    required String explanation,
     required Color themeColor,
     required VoidCallback onTap,
   }) {
@@ -223,11 +258,11 @@ class RiskResultPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               padding: const EdgeInsets.all(12),
-              child: const Align(
+              child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '※ 리포트 내용은 샘플입니다.\n실제 데이터가 들어오면 여기에 설명이 들어갑니다.',
-                  style: TextStyle(fontSize: 14),
+                  explanation,
+                  style: const TextStyle(fontSize: 14),
                 ),
               ),
             ),
@@ -237,7 +272,6 @@ class RiskResultPage extends StatelessWidget {
     );
   }
 
-  /// 점수에 따라 색상 결정
   static Color getRiskColor(int score) {
     if (score <= 20) return const Color(0xFF4CAF50); // 초록
     if (score <= 40) return const Color(0xFFFFC107); // 노랑

@@ -62,6 +62,7 @@ class MyApp extends StatelessWidget {
           title: '위험도 분석',
           score: 85,
           themeColor: Colors.white,
+          explanation: '리포트 설명 예시입니다.',
         ),
         '/risk_result': (ctx) => RiskResultPage(),
       },
