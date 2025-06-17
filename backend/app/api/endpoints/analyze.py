@@ -13,7 +13,7 @@ from pathlib import Path
 
 router = APIRouter()
 
-@router.post("/analyze/")
+@router.post("/")
 async def analyze_property(data: AnalyzeRequest):
     BASE_DIR = Path(__file__).resolve().parent.parent
     registry_path = BASE_DIR / "registry.json"
