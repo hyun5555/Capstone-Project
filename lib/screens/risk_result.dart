@@ -63,10 +63,10 @@ class _RiskResultPageState extends State<RiskResultPage> {
     );
 
     if (result['success']) {
-      final data = result['data'];
+      final data = result['data'];  // ✅ 이건 그대로 유지
       setState(() {
-        riskScore = data['report']['overall_score'];
-        riskDetails = List<Map<String, dynamic>>.from(data['report']['risk_items']);
+        riskScore = data['risk_score'];  // ✅ 수정된 필드명
+        riskDetails = List<Map<String, dynamic>>.from(data['risk_items']);  // ✅ 수정된 필드명
         isLoading = false;
       });
     } else {
@@ -76,6 +76,7 @@ class _RiskResultPageState extends State<RiskResultPage> {
       print(result['message']);
     }
   }
+
 
 
   @override

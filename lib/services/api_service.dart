@@ -151,7 +151,7 @@ class ApiService {
       body: jsonEncode({
         "address": address,
         "deposit": deposit,
-        "market_price": marketPrice,
+        "marketPrice": marketPrice,
       }),
     );
 
