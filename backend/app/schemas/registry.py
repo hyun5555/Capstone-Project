@@ -6,7 +6,7 @@ from typing import Optional, List
 class RegistryRequest(BaseModel):
     realEstateName: str         # 예: 서울특별시 강남구 역삼동 123-45
     password: str               # 사용자 비밀번호 (백엔드에서 RSA 암호화)
-    organization: Optional[str] = "0004"  # 기관 코드 (기본값)
+    organization: Optional[str] = "0002"  # 기관 코드 (기본값)
 
 # 🔹 응답 스키마
 class ResOwnerInfo(BaseModel):
