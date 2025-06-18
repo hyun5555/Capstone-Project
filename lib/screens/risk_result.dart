@@ -1,37 +1,43 @@
 // lib/screens/risk_result.dart
 import 'package:capstone_project/screens/risk_detail.dart';
 import 'package:flutter/material.dart';
-import 'package:capstone_project/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:capstone_project/services/api_service.dart';
 
 class RiskResultPage extends StatefulWidget {
   final String address;
   final int deposit;
   final int marketPrice;
+  final int riskScore;
+  final List<Map<String, dynamic>> riskItems;
 
   const RiskResultPage({
     super.key,
     required this.address,
     required this.deposit,
     required this.marketPrice,
+    required this.riskScore,
+    required this.riskItems,
   });
 
   @override
   State<RiskResultPage> createState() => _RiskResultPageState();
 }
 
-
 class _RiskResultPageState extends State<RiskResultPage> {
-  int riskScore = 0;
-  String userName = '';  // 사용자 이름
-  List<Map<String, dynamic>> riskDetails = [];
+  String userName = '';
+  late int riskScore;
+  late List<Map<String, dynamic>> riskDetails;
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchUserInfo();         // 사용자 이름 불러오기
-    loadAnalysisResult();    // 위험도 분석 결과 불러오기
+    fetchUserInfo();
+    // ✅ 전달받은 데이터로 초기화
+    riskScore = widget.riskScore;
+    riskDetails = widget.riskItems;
+    isLoading = false;
   }
 
   Future<void> fetchUserInfo() async {
@@ -54,30 +60,6 @@ class _RiskResultPageState extends State<RiskResultPage> {
       print("❌ 사용자 이름 불러오기 실패: ${result["message"]}");
     }
   }
-
-  Future<void> loadAnalysisResult() async {
-    final result = await ApiService.analyzeJeonseRisk(
-      address: widget.address,
-      deposit: widget.deposit,
-      marketPrice: widget.marketPrice,
-    );
-
-    if (result['success']) {
-      final data = result['data'];  // ✅ 이건 그대로 유지
-      setState(() {
-        riskScore = data['risk_score'];  // ✅ 수정된 필드명
-        riskDetails = List<Map<String, dynamic>>.from(data['risk_items']);  // ✅ 수정된 필드명
-        isLoading = false;
-      });
-    } else {
-      setState(() {
-        isLoading = false;
-      });
-      print(result['message']);
-    }
-  }
-
-
 
   @override
   Widget build(BuildContext context) {

@@ -122,6 +122,8 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
                   );
 
                   if (analysisResp['success']) {
+                    final resultData = analysisResp['data'];
+
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -129,6 +131,8 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
                           address: selectedAddressData!['fullAddress'],
                           deposit: deposit,
                           marketPrice: 1000000000,
+                          riskScore: resultData['risk_score'], // ✅ 추가
+                          riskItems: List<Map<String, dynamic>>.from(resultData['risk_items']), // ✅ 추가
                         ),
                       ),
                     );
