@@ -1,3 +1,4 @@
+# app/api/endpoints/analyze.py
 from fastapi import APIRouter
 from app.schemas.analyze import AnalyzeRequest
 from app.clients.building_api import get_building_title_info
