@@ -124,8 +124,13 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
 
                     if (analysisResp['success']) {
                       final resultData = analysisResp['data'];
-                      print("✅ risk_score: ${resultData['risk_score']}");
-                      print("✅ risk_items: ${resultData['risk_items']}");
+                      print("✅ resultData: $resultData");
+
+                      // ⚠️ 중첩된 'data' 안에 실제 정보 존재
+                      final innerData = resultData['data'];
+
+                      print("✅ risk_score: ${innerData['risk_score']}");
+                      print("✅ risk_items: ${innerData['risk_items']}");
 
                       Navigator.push(
                         context,
@@ -134,18 +139,19 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
                             address: selectedAddressData!['fullAddress'],
                             deposit: deposit,
                             marketPrice: 1000000000,
-                            riskScore: (resultData['risk_score'] is num)
-                                ? (resultData['risk_score'] as num).toInt()
+                            riskScore: (innerData['risk_score'] is num)
+                                ? (innerData['risk_score'] as num).toInt()
                                 : 0,
-                            riskItems: (resultData['risk_items'] is List)
-                                ? (resultData['risk_items'] as List)
+                            riskItems: (innerData['risk_items'] is List)
+                                ? (innerData['risk_items'] as List)
                                 .map((item) => Map<String, dynamic>.from(item))
                                 .toList()
                                 : [],
                           ),
                         ),
                       );
-                    } else {
+
+                  } else {
                       print("❌ 분석 실패: ${analysisResp['message']}");
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text("위험도 분석 실패: ${analysisResp['message']}")),
