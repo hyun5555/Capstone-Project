@@ -68,6 +68,8 @@ class MyApp extends StatelessWidget {
           address: '서울 강남구 역삼동 123-45',
           deposit: 100000000,
           marketPrice: 200000000,
+          riskScore: 85, // ✅ 추가
+          riskItems: [], // ✅ 추가 (임시 빈 리스트)
         ),
       },
     );
