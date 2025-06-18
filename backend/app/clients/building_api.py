@@ -54,7 +54,6 @@ async def get_building_title_info(body: dict) -> dict:
 
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=502, detail=f"CODEF HTTP 오류: {e.response.status_code}, 내용: {e.response.text}")
-
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -69,4 +68,15 @@ async def get_building_title_info(body: dict) -> dict:
     if "data" not in data:
         raise HTTPException(status_code=502, detail=f"CODEF 응답 데이터 이상: {data}")
 
-    return data["data"]
+    raw = data["data"]
+
+    # ✅ 여기에 핵심 가공 부분 추가
+    return {
+        "owner": raw.get("resOwnerList", [{}])[0].get("resOwner", "없음"),
+        "usage": raw.get("resBuildingStatusList", [{}])[0].get("resUseType", "없음"),
+        "structure": raw.get("resBuildingStatusList", [{}])[0].get("resStructure", "없음"),
+        "area": raw.get("resBuildingStatusList", [{}])[0].get("resArea", "없음"),
+        "shared_area": "없음",  # 필요 시 가공
+        "total_area": "없음",   # 필요 시 가공
+        "build_year": raw.get("resIssueDate", "")[:4] or "없음"
+    }
