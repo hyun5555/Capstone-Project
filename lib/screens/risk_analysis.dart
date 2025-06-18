@@ -109,39 +109,53 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
             actions: [
               TextButton(
                 child: const Text("확인"),
-                onPressed: () async {
-                  Navigator.pop(context); // 팝업 닫기
+                onPressed: () {
+                  Navigator.pop(context); // 다이얼로그 닫기
 
-                  final deposit = int.tryParse(priceController.text.replaceAll(',', '')) ?? 0;
+                  // pop 이후 context 확보 → async 로직 분리
+                  Future.microtask(() async {
+                    final deposit = int.tryParse(priceController.text.replaceAll(',', '')) ?? 0;
 
-                  // 🔹 분석 API 호출
-                  final analysisResp = await ApiService.analyzeJeonseRisk(
-                    address: selectedAddressData!['fullAddress'],
-                    deposit: deposit,
-                    marketPrice: 1000000000, // 시세 추후 교체
-                  );
+                    try {
+                      final analysisResp = await ApiService.analyzeJeonseRisk(
+                        address: selectedAddressData!['fullAddress'],
+                        deposit: deposit,
+                        marketPrice: 1000000000,
+                      );
 
-                  if (analysisResp['success']) {
-                    final resultData = analysisResp['data']; // 👈 JSON 내부 데이터
+                      print("✅ API 응답: $analysisResp");
 
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => RiskResultPage(
-                          address: selectedAddressData!['fullAddress'],
-                          deposit: deposit,
-                          marketPrice: 1000000000,
-                          riskScore: resultData['risk_score'], // ✅ 반드시 포함
-                          riskItems: List<Map<String, dynamic>>.from(resultData['risk_items']), // ✅ 반드시 포함
-                        ),
-                      ),
-                    );
-                  } else {
-                    print("❌ 분석 실패: ${analysisResp['message']}");
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("위험도 분석 실패: ${analysisResp['message']}")),
-                    );
-                  }
+                      if (analysisResp['success']) {
+                        final resultData = analysisResp['data'];
+                        print("✅ risk_score: ${resultData['risk_score']}");
+                        print("✅ risk_items: ${resultData['risk_items']}");
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => RiskResultPage(
+                              address: selectedAddressData!['fullAddress'],
+                              deposit: deposit,
+                              marketPrice: 1000000000,
+                              riskScore: resultData['risk_score'],
+                              riskItems: List<Map<String, dynamic>>.from(resultData['risk_items']),
+                            ),
+                          ),
+                        );
+                      } else {
+                        print("❌ 분석 실패: ${analysisResp['message']}");
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("위험도 분석 실패: ${analysisResp['message']}")),
+                        );
+                      }
+                    } catch (e, stack) {
+                      print("❌ 예외 발생: $e");
+                      print("📌 Stack: $stack");
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("분석 중 오류 발생: $e")),
+                      );
+                    }
+                  });
                 },
               ),
             ],
@@ -160,6 +174,7 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
       );
     }
   }
+
 
   void _onAnalyzePressed() {
     sendAddressAndPrice();
