@@ -137,8 +137,8 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
                               address: selectedAddressData!['fullAddress'],
                               deposit: deposit,
                               marketPrice: 1000000000,
-                              riskScore: resultData['risk_score'],
-                              riskItems: List<Map<String, dynamic>>.from(resultData['risk_items']),
+                              riskScore: resultData['risk_score'] ?? 0, // ✅ null-safe 처리
+                              riskItems: List<Map<String, dynamic>>.from(resultData['risk_items'] ?? []), // ✅ null-safe 처리
                             ),
                           ),
                         );
