@@ -139,10 +139,12 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
                               marketPrice: 1000000000,
                               riskScore: (resultData['risk_score'] is num)
                                   ? (resultData['risk_score'] as num).toInt()
-                                  : 0, // 🛠️ double → int
-                              riskItems: (resultData['risk_items'] as List)
+                                  : 0,
+                              riskItems: (resultData['risk_items'] is List)
+                                  ? (resultData['risk_items'] as List)
                                   .map((item) => Map<String, dynamic>.from(item))
-                                  .toList(), // 🛠️ List<dynamic> → List<Map<String, dynamic>>
+                                  .toList()
+                                  : [],
                             ),
                           ),
                         );
