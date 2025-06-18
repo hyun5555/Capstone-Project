@@ -69,7 +69,10 @@ async def analyze_property(data: AnalyzeRequest):
     bld_fields = extract_fields(bld_text)
 
     flags = compare_flags_gpt4(reg_fields, bld_fields)
+    print("📌 GPT-4 플래그 결과:", flags)
+
     explanations = generate_explanations(flags, reg_fields, bld_fields)
+    print("📌 GPT-4 설명 결과:", explanations)
 
     # ✅ 점수 산출용 메타데이터 구성
     findings = {
@@ -89,16 +92,20 @@ async def analyze_property(data: AnalyzeRequest):
             "시세": data.marketPrice
         }
     )
+    print("📊 위험도 점수:", risk_result["score"])
 
     risk_items = []
     for key in flags:
-        risk_items.append({
+        item = {
             "title": key,
             "score": 100 if flags[key] == "일치" else 30,
             "explanation": explanations.get(key, "설명 없음")
-        })
+        }
+        risk_items.append(item)
 
-    return {
+    print("📋 리스크 항목 리스트:", risk_items)
+
+    response_data = {
         "success": True,
         "data": {
             "address": data.address,
@@ -106,3 +113,6 @@ async def analyze_property(data: AnalyzeRequest):
             "risk_items": risk_items
         }
     }
+
+    print("📤 최종 응답 데이터:", json.dumps(response_data, ensure_ascii=False, indent=2))
+    return response_data
