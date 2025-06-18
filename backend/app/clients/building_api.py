@@ -19,7 +19,7 @@ CODEF_BUILDING_URL = f"{CODEF_API_HOST}/v1/kr/public/mw/building-register/genera
 async def get_building_title_info(body: dict) -> dict:
     token = await get_second_codef_token()
 
-    address = body.get("address")
+    address = body.get("fullAddress") or body.get("address")
     main_no = body.get("mainAddressNo")
     sub_no = body.get("subAddressNo")
     type_ = body.get("type")
