@@ -1,4 +1,5 @@
 # app/api/endpoints/analyze.py
+
 from fastapi import APIRouter
 from app.schemas.analyze import AnalyzeRequest
 from app.clients.building_api import get_building_title_info
@@ -14,32 +15,32 @@ from pathlib import Path
 
 router = APIRouter()
 
-@router.post("/")
+@router.post("/analyze/")
 async def analyze_property(data: AnalyzeRequest):
+    # ✅ 등기부 JSON 파일 불러오기
     registry_path = Path(__file__).parent.parent.parent / "backend" / "registry.json"
-
-
     if not registry_path.exists():
         raise FileNotFoundError(f"등기부 JSON 파일이 없습니다: {registry_path}")
-
     with open(registry_path, "r", encoding="utf-8") as f:
         registry_data = json.load(f)
 
+    # ✅ 건축물대장 원시 데이터 불러오기
     building_data_raw = await get_building_title_info({
-    "address": data.address,
-    "mainAddressNo": "101",      # ⛳ 임의의 더미 값 (없으면 CODEF 오류남)
-    "subAddressNo": "0",         # ⛳ 보통 '0' 사용
-    "type": "road"               # ⛳ 'road' 또는 'jibun' 중 하나 (CODEF 요구 파라미터)
-})
+        "fullAddress": data.address,
+        "mainAddressNo": "101",
+        "subAddressNo": "0",
+        "type": "road"
+    })
 
-    # 🔹 필요한 필드 수동 추출 (CODEF 응답 구조 기반)
+    # ✅ 안전한 필드 추출
     owner = building_data_raw.get("resOwnerList", [{}])[0].get("resOwner", "없음")
-    usage = building_data_raw.get("resBuildingStatusList", [{}])[0].get("resUseType", "없음")
-    structure = building_data_raw.get("resBuildingStatusList", [{}])[0].get("resStructure", "없음")
-    area = building_data_raw.get("resBuildingStatusList", [{}])[0].get("resArea", "없음")
-    build_year = building_data_raw.get("resIssueDate", "")[:4]
+    status_list = building_data_raw.get("resBuildingStatusList", [{}])
+    usage = status_list[0].get("resUseType", "없음")
+    structure = status_list[0].get("resStructure", "없음")
+    area = status_list[0].get("resArea", "없음")
+    build_year = building_data_raw.get("resIssueDate", "")[:4] or "없음"
 
-    # 🔹 reg_text와 bld_text 생성
+    # ✅ 텍스트 구성
     reg_text = (
         f"소유자: {registry_data['소유자명']}, "
         f"용도: {registry_data['건물 용도']}, "
@@ -63,13 +64,14 @@ async def analyze_property(data: AnalyzeRequest):
         f"채권최고액: 없음, 권리: 없음"
     )
 
-    # 🔹 추출 및 비교
+    # ✅ 필드 추출 및 비교
     reg_fields = extract_fields(reg_text)
     bld_fields = extract_fields(bld_text)
 
     flags = compare_flags_gpt4(reg_fields, bld_fields)
     explanations = generate_explanations(flags, reg_fields, bld_fields)
 
+    # ✅ 점수 산출용 메타데이터 구성
     findings = {
         "등기부_소유자": reg_fields.get("소유자명"),
         "건축물대장_소유자": bld_fields.get("소유자명"),
@@ -80,7 +82,13 @@ async def analyze_property(data: AnalyzeRequest):
         "건물 용도": reg_fields.get("건물 용도", ""),
     }
 
-    risk_result = calculate_risk_score(findings, transaction_data={"보증금": data.deposit, "시세": data.marketPrice})
+    risk_result = calculate_risk_score(
+        findings,
+        transaction_data={
+            "보증금": data.deposit,
+            "시세": data.marketPrice
+        }
+    )
 
     risk_items = []
     for key in flags:
