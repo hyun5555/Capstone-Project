@@ -61,7 +61,6 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
       if (buildingResp.statusCode == 200) {
         final buildingData = jsonDecode(utf8.decode(buildingResp.bodyBytes));
 
-        // 🔹 건축물 정보 팝업
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
@@ -109,59 +108,56 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
             actions: [
               TextButton(
                 child: const Text("확인"),
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(context); // 다이얼로그 닫기
 
-                  // pop 이후 context 확보 → async 로직 분리
-                  Future.microtask(() async {
-                    final deposit = int.tryParse(priceController.text.replaceAll(',', '')) ?? 0;
+                  final deposit = int.tryParse(priceController.text.replaceAll(',', '')) ?? 0;
 
-                    try {
-                      final analysisResp = await ApiService.analyzeJeonseRisk(
-                        address: selectedAddressData!['fullAddress'],
-                        deposit: deposit,
-                        marketPrice: 1000000000,
-                      );
+                  try {
+                    final analysisResp = await ApiService.analyzeJeonseRisk(
+                      address: selectedAddressData!['fullAddress'],
+                      deposit: deposit,
+                      marketPrice: 1000000000,
+                    );
 
-                      print("✅ API 응답: $analysisResp");
+                    print("✅ API 응답: $analysisResp");
 
-                      if (analysisResp['success']) {
-                        final resultData = analysisResp['data'];
-                        print("✅ risk_score: ${resultData['risk_score']}");
-                        print("✅ risk_items: ${resultData['risk_items']}");
+                    if (analysisResp['success']) {
+                      final resultData = analysisResp['data'];
+                      print("✅ risk_score: ${resultData['risk_score']}");
+                      print("✅ risk_items: ${resultData['risk_items']}");
 
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => RiskResultPage(
-                              address: selectedAddressData!['fullAddress'],
-                              deposit: deposit,
-                              marketPrice: 1000000000,
-                              riskScore: (resultData['risk_score'] is num)
-                                  ? (resultData['risk_score'] as num).toInt()
-                                  : 0,
-                              riskItems: (resultData['risk_items'] is List)
-                                  ? (resultData['risk_items'] as List)
-                                  .map((item) => Map<String, dynamic>.from(item))
-                                  .toList()
-                                  : [],
-                            ),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RiskResultPage(
+                            address: selectedAddressData!['fullAddress'],
+                            deposit: deposit,
+                            marketPrice: 1000000000,
+                            riskScore: (resultData['risk_score'] is num)
+                                ? (resultData['risk_score'] as num).toInt()
+                                : 0,
+                            riskItems: (resultData['risk_items'] is List)
+                                ? (resultData['risk_items'] as List)
+                                .map((item) => Map<String, dynamic>.from(item))
+                                .toList()
+                                : [],
                           ),
-                        );
-                      } else {
-                        print("❌ 분석 실패: ${analysisResp['message']}");
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("위험도 분석 실패: ${analysisResp['message']}")),
-                        );
-                      }
-                    } catch (e, stack) {
-                      print("❌ 예외 발생: $e");
-                      print("📌 Stack: $stack");
+                        ),
+                      );
+                    } else {
+                      print("❌ 분석 실패: ${analysisResp['message']}");
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("분석 중 오류 발생: $e")),
+                        SnackBar(content: Text("위험도 분석 실패: ${analysisResp['message']}")),
                       );
                     }
-                  });
+                  } catch (e, stack) {
+                    print("❌ 예외 발생: $e");
+                    print("📌 Stack: $stack");
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("분석 중 오류 발생: $e")),
+                    );
+                  }
                 },
               ),
             ],
@@ -180,6 +176,7 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
       );
     }
   }
+
 
 
   void _onAnalyzePressed() {
