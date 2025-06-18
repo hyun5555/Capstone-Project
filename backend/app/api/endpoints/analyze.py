@@ -16,7 +16,8 @@ router = APIRouter()
 
 @router.post("/")
 async def analyze_property(data: AnalyzeRequest):
-    registry_path = Path("/home/ubuntu/Capstone-Project/backend/registry.json")
+    registry_path = Path(__file__).parent.parent.parent / "backend" / "registry.json"
+
 
     if not registry_path.exists():
         raise FileNotFoundError(f"등기부 JSON 파일이 없습니다: {registry_path}")
@@ -24,7 +25,12 @@ async def analyze_property(data: AnalyzeRequest):
     with open(registry_path, "r", encoding="utf-8") as f:
         registry_data = json.load(f)
 
-    building_data_raw = await get_building_title_info(data.address)
+    building_data_raw = await get_building_title_info({
+    "address": data.address,
+    "mainAddressNo": "101",      # ⛳ 임의의 더미 값 (없으면 CODEF 오류남)
+    "subAddressNo": "0",         # ⛳ 보통 '0' 사용
+    "type": "road"               # ⛳ 'road' 또는 'jibun' 중 하나 (CODEF 요구 파라미터)
+})
 
     # 🔹 필요한 필드 수동 추출 (CODEF 응답 구조 기반)
     owner = building_data_raw.get("resOwnerList", [{}])[0].get("resOwner", "없음")
