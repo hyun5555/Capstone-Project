@@ -137,7 +137,9 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
                               address: selectedAddressData!['fullAddress'],
                               deposit: deposit,
                               marketPrice: 1000000000,
-                              riskScore: (resultData['risk_score'] as num).toInt(), // 🛠️ double → int
+                              riskScore: (resultData['risk_score'] is num)
+                                  ? (resultData['risk_score'] as num).toInt()
+                                  : 0, // 🛠️ double → int
                               riskItems: (resultData['risk_items'] as List)
                                   .map((item) => Map<String, dynamic>.from(item))
                                   .toList(), // 🛠️ List<dynamic> → List<Map<String, dynamic>>
