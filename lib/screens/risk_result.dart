@@ -141,9 +141,10 @@ class _RiskResultPageState extends State<RiskResultPage> {
             const SizedBox(height: 16),
             Column(
               children: riskDetails
+                  .where((risk) => risk['title'] != null && risk['score'] != null)
                   .map((risk) => _buildRiskReportItem(
-                title: risk['title'] ?? '제목 없음',
-                score: risk['score'] ?? 0,  // ✅ 여기 수정
+                title: risk['title'].toString().trim(),
+                score: risk['score'] ?? 0,
                 explanation: risk['explanation'] ?? '설명이 없습니다.',
                 themeColor: themeColor,
                 onTap: () {
@@ -152,7 +153,7 @@ class _RiskResultPageState extends State<RiskResultPage> {
                     MaterialPageRoute(
                       builder: (_) => RiskDetailPage(
                         title: risk['title'] ?? '',
-                        score: risk['score'] ?? 0,  // ✅ 여기도 수정
+                        score: risk['score'] ?? 0,
                         explanation: risk['explanation'] ?? '',
                         themeColor: themeColor,
                       ),
@@ -162,6 +163,7 @@ class _RiskResultPageState extends State<RiskResultPage> {
               ))
                   .toList(),
             ),
+
           ],
         ),
       ),

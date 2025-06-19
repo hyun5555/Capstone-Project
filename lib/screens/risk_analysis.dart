@@ -140,7 +140,7 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
                             deposit: deposit,
                             marketPrice: 1000000000,
                             riskScore: (innerData['risk_score'] is num)
-                                ? (innerData['risk_score'] as num).toInt()
+                                ? ((innerData['risk_score'] as num) * 10).toInt()  // 6.3 → 63
                                 : 0,
                             riskItems: (innerData['risk_items'] is List)
                                 ? (innerData['risk_items'] as List)
