@@ -2,7 +2,14 @@
 
 ## 📌 프로젝트 소개
 
-전세 계약 경험이 부족한 전세입문자를 위해 안전하고 신뢰할 수 있는 전세 계약 환경을 제공하는 AI 기반 전세계약 가이드 시스템입니다.
+<p align="center">
+    <img width="749" height="497" alt="Image" src="https://github.com/user-attachments/assets/d2d31ccf-a941-4229-b584-0b9038bc80f8" />
+    <img width="749" height="497" alt="Image" src="https://github.com/user-attachments/assets/b640ac3e-ee30-4e11-972a-042fc0b4d1a3" />
+</p>
+
+<br>
+
+ 전세 계약 경험이 부족한 전세입문자를 위해 안전하고 신뢰할 수 있는 전세 계약 환경을 제공하는 AI 기반 전세계약 가이드 시스템입니다.
 공공데이터와 LLM 기반 문서 분석 기술을 활용하여 계약 과정에서 발생할 수 있는 전세사기, 허위 매물, 문서 간 불일치 위험 요소를 사전에 탐지하고, 사용자에게 계약 절차와 위험 정보를 직관적으로 제공합니다.
 
 ---
@@ -17,11 +24,64 @@
 
 ---
 
+# ⚙️ 시스템 아키텍처
+
+<p align="center">
+  <img width="1672" height="941" alt="Image" src="https://github.com/user-attachments/assets/20920fdf-b80c-4462-8498-724d6430b7d5" />
+</p>
+
+---
+
+# 💻 기술 스택
+
+## Frontend
+
+* Flutter (Dart)
+
+## Backend
+
+* Python
+* FastAPI
+* Uvicorn
+
+## AI / LLM
+
+* LangChain
+* GPT-4
+* KoAlpaca (초기 실험 모델)
+
+## Database
+
+* PostgreSQL
+* Chroma VectorDB
+
+## Crawling / Data Processing
+
+* Selenium
+* Regex (정규표현식)
+
+## API
+
+* CODEF API
+* 공공데이터포털 API
+* 도로명주소 API
+
+## Collaboration
+
+* GitHub
+* JCloud
+
+---
+
 # 🛠 주요 기능
 
 ## 1. 의미 불일치 탐지 및 위험 분석 시스템
 
 등기부등본과 건축물대장 간 의미적 불일치를 자동 탐지하고, 이를 기반으로 전세사기 위험도를 분석하는 기능입니다.
+
+<p align="center">
+  <img width="1000" alt="Image" src="https://github.com/user-attachments/assets/217dccad-7806-44df-a8e9-7af561c9eb52" />
+</p>
 
 ### ✔ 주요 기능
 
@@ -120,65 +180,6 @@
 
 ---
 
-# ⚙️ 시스템 아키텍처
-
-```text
-Flutter App
-    ↓
-FastAPI Backend
-    ↓
- ┌──────────────────────────┐
- │ PostgreSQL              │
- │ Chroma VectorDB         │
- └──────────────────────────┘
-    ↓
-LangChain Prompt Chain
-    ↓
-GPT-4 기반 분석
-    ↓
-위험도 분석 리포트 반환
-```
-
----
-
-# 💻 기술 스택
-
-## Frontend
-
-* Flutter (Dart)
-
-## Backend
-
-* Python
-* FastAPI
-* Uvicorn
-
-## AI / LLM
-
-* LangChain
-* GPT-4
-* KoAlpaca (초기 실험 모델)
-
-## Database
-
-* PostgreSQL
-* Chroma VectorDB
-
-## Crawling / Data Processing
-
-* Selenium
-* Regex (정규표현식)
-
-## API
-
-* CODEF API
-* 공공데이터포털 API
-* 도로명주소 API
-
-## Collaboration
-
-* GitHub
-* JCloud
 
 ---
 
