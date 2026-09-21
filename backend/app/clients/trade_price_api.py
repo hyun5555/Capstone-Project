@@ -22,6 +22,7 @@ import xmltodict
 # 로거 설정
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # 환경 변수 검증
 if not all([APT_TRADE_PRICE_URL, OFFI_TRADE_PRICE_URL, RH_TRADE_PRICE_URL, SH_TRADE_PRICE_URL, SERVICE_KEY]):
@@ -71,13 +72,13 @@ async def fetch_trade_price_data(region_code: str, deal_ym: str, property_type: 
     "pageNo": "1",
   }
 
-  logger.info(f"[국토부 API 요청] {property_type.upper()} params: {params}")
+  logger.info("[국토부 API 요청] %s region=%s month=%s", property_type.upper(), region_code, deal_ym)
 
   try:
     async with httpx.AsyncClient() as client:
       resp = await client.get(url, params=params)
       resp.raise_for_status()
-    logger.info(f"[국토부 API 응답] {property_type.upper()} 응답: {resp.text[:500]}")
+    logger.info("[국토부 API 응답] %s status=%s", property_type.upper(), resp.status_code)
   except httpx.HTTPStatusError as e:
     detail = f"{property_type.upper()} API HTTP 오류: {e.response.status_code}, 내용: {e.response.text}"
     logger.error(detail)

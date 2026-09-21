@@ -7,3 +7,6 @@ __pycache__
 .pytest_cache
 chroma_data
 .git
+
+codef_captures
+backups

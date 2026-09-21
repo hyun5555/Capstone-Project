@@ -2,8 +2,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-
-
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
@@ -12,12 +10,21 @@ class ApiService {
 
   static Uri endpoint(String path) => Uri.parse('$baseUrl$path');
 
+  static Map<String, dynamic> _jsonObject(http.Response response) {
+    try {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      return decoded is Map<String, dynamic> ? decoded : {};
+    } on FormatException {
+      return {};
+    }
+  }
+
   /// 이메일 회원가입
   static Future<Map<String, dynamic>> signUpEmail({
     required String email,
     required String username,
     required String password,
-    required String phone,  // ✅ phone 파라미터 추가
+    required String phone, // ✅ phone 파라미터 추가
   }) async {
     final uri = endpoint('/auth/signup/email');
     final resp = await http.post(
@@ -27,18 +34,20 @@ class ApiService {
         "email": email,
         "username": username,
         "password": password,
-        "phone": phone,  // ✅ 요청 바디에 포함
+        "phone": phone, // ✅ 요청 바디에 포함
       }),
     );
 
-    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final body = _jsonObject(resp);
     if (resp.statusCode == 201 || resp.statusCode == 200) {
       return {"success": true, "data": body};
     } else {
-      return {"success": false, "message": body["detail"] ?? "Unknown error"};
+      return {
+        "success": false,
+        "message": body["detail"] ?? "회원가입 실패 (${resp.statusCode})",
+      };
     }
   }
-
 
   /// 로그인
   static Future<Map<String, dynamic>> login({
@@ -49,49 +58,60 @@ class ApiService {
     final resp = await http.post(
       uri,
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "email": email,
-        "password": password,
-      }),
+      body: jsonEncode({"email": email, "password": password}),
     );
 
-    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final body = _jsonObject(resp);
     if (resp.statusCode == 200) {
       return {"success": true, "data": body};
     } else {
-      return {"success": false, "message": body["detail"] ?? "Invalid credentials"};
+      return {
+        "success": false,
+        "message": body["detail"] ?? "Invalid credentials",
+      };
     }
   }
-
 
   //  챗봇 메시지 요청 함수
-  static Future<String> fetchChatbotAnswer(String userMessage, {String source = "input"}) async {
-    final url = endpoint('/chatbot/chat');
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "message": userMessage,
-        "source": source, // ✅ 이게 꼭 포함되어야 함
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      // ✅ 한글 깨짐 방지
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
-      return data['answer'] ?? '답변을 찾을 수 없습니다.';
-    } else {
-      return '서버 오류: ${response.statusCode}';
+  static Future<Map<String, dynamic>> fetchChatbotAnswer(
+    String userMessage,
+  ) async {
+    try {
+      final response = await http.post(
+        endpoint('/chatbot/chat'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"message": userMessage}),
+      );
+      final data = _jsonObject(response);
+      if (response.statusCode == 200) {
+        return {
+          'answer': data['answer'] ?? '답변을 찾을 수 없습니다.',
+          'sources': data['sources'] is List ? data['sources'] : [],
+          'mode': data['mode'] ?? 'unknown',
+        };
+      }
+      return {
+        'answer': data['detail'] ?? '서버 오류: ${response.statusCode}',
+        'sources': [],
+        'mode': 'error',
+      };
+    } catch (_) {
+      return {
+        'answer': '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+        'sources': [],
+        'mode': 'error',
+      };
     }
   }
 
-
-
   // 로그인된 유저의 email 기반으로 정보 조회
-  static Future<Map<String, dynamic>> getUserByEmail(String email, String token) async {
-    final uri = endpoint('/users/by-email').replace(
-      queryParameters: {'email': email},
-    );
+  static Future<Map<String, dynamic>> getUserByEmail(
+    String email,
+    String token,
+  ) async {
+    final uri = endpoint(
+      '/users/by-email',
+    ).replace(queryParameters: {'email': email});
     final resp = await http.get(
       uri,
       headers: {"Authorization": "Bearer $token"},
@@ -101,13 +121,9 @@ class ApiService {
       final data = jsonDecode(utf8.decode(resp.bodyBytes));
       return {"success": true, "data": data};
     } else {
-      return {
-        "success": false,
-        "message": "사용자 정보 조회 실패 (${resp.statusCode})"
-      };
+      return {"success": false, "message": "사용자 정보 조회 실패 (${resp.statusCode})"};
     }
   }
-
 
   // ✅ 회원정보 수정 API 호출
   static Future<Map<String, dynamic>> updateUser({
@@ -141,13 +157,14 @@ class ApiService {
     }
   }
 
-
-
   // ✅ lib/services/api_service.dart 수정
   static Future<Map<String, dynamic>> analyzeJeonseRisk({
     required String address,
     required int deposit,
-    required int marketPrice,
+    int? marketPrice, // 없으면 서버가 같은 동 최근 매매 실거래가 중앙값으로 추정하고, 못 구하면 '판단불가'로 처리
+    String? roadName,
+    String? mainAddressNo,
+    String? subAddressNo,
   }) async {
     final url = endpoint('/analyze/');
     final response = await http.post(
@@ -156,7 +173,11 @@ class ApiService {
       body: jsonEncode({
         "address": address,
         "deposit": deposit,
-        "marketPrice": marketPrice,
+        if (marketPrice != null) "marketPrice": marketPrice,
+        // 건축물대장 조회에 필요한 주소 정보 (주소 검색 결과 그대로)
+        "roadName": roadName,
+        "mainAddressNo": mainAddressNo,
+        "subAddressNo": subAddressNo ?? '0',
       }),
     );
 
@@ -164,15 +185,7 @@ class ApiService {
       final data = jsonDecode(utf8.decode(response.bodyBytes));
       return {"success": true, "data": data};
     } else {
-      return {
-        "success": false,
-        "message": "분석 실패 (${response.statusCode})"
-      };
+      return {"success": false, "message": "분석 실패 (${response.statusCode})"};
     }
   }
-
-
-
-
-
 }

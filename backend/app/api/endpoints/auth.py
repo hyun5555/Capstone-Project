@@ -2,6 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from pydantic import BaseModel
 from typing import Optional
 
@@ -24,7 +25,7 @@ router = APIRouter()
 # ─────────────────────────────────────
 # ✅ 이메일 회원가입
 # ─────────────────────────────────────
-@router.post("/signup/email")
+@router.post("/signup/email", status_code=201)
 async def signup_email(
     body: SignupEmailRequest,
     db: AsyncSession = Depends(get_db)
@@ -49,9 +50,16 @@ async def signup_email(
         hashed_password=hashed_pw,
         phone=phone  # ✅ 저장
     )
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
+    try:
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Email already registered")
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="회원가입 저장에 실패했습니다")
 
     token = create_access_token({"sub": str(new_user.user_id)})
 

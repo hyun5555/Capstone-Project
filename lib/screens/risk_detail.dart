@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:capstone_project/widgets/app_bottom_navigation.dart';
 
 class RiskDetailPage extends StatelessWidget {
   final String title;
@@ -17,12 +18,7 @@ class RiskDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        centerTitle: true,
-        elevation: 0,
         title: Text(
           '$title 상세 리포트',
           style: const TextStyle(
@@ -71,46 +67,7 @@ class RiskDetailPage extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        currentIndex: 1,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF010186),
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              Navigator.pushNamed(context, '/main');
-              break;
-            case 1:
-              break;
-            case 2:
-              Navigator.pushNamed(context, '/contract_info_step');
-              break;
-            case 3:
-              Navigator.pushNamed(context, '/my');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/home_icon.png')),
-            label: '홈',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/analysis_solid_icon.png')),
-            label: '위험도 분석',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/chart_underbar.png')),
-            label: '계약서 정보',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/mypage_icon.png')),
-            label: '마이페이지',
-          ),
-        ],
-      ),
+      bottomNavigationBar: const AppBottomNavigation(currentIndex: 1),
     );
   }
 }

@@ -111,7 +111,7 @@ async def fetch_exact_jeonse_records(address: str, house_type: str = "아파트"
     print(f"✅ {deal_ym} 데이터 {len(items)}건 확인됨")
 
     # dict → xml 변환
-    dict_items = [item.model_dump() for item in items]
+    dict_items = [item.dict() for item in items]
     xml_dict = {
       "response": {
         "body": {
@@ -173,7 +173,7 @@ async def get_latest_price_by_region(address: str, house_type: str, trade_type: 
     deal_ym = current_ym.strftime("%Y%m")
     items = await fetch_fn(region_code, deal_ym, property_code)
     if items:
-      dict_items = [item.model_dump() for item in items]
+      dict_items = [item.dict() for item in items]
       xml_dict = {
         "response": {
           "body": {
@@ -391,7 +391,7 @@ async def summarize_transaction_by_address(address: str, house_type: str, allow_
     if jeonse_ratio >= 90:
       risk_level = "위험"
     elif jeonse_ratio >= 70:
-      risk_level = "보통"
+      risk_level = "주의"
     else:
       risk_level = "안전"
 

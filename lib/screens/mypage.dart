@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:capstone_project/services/api_service.dart'; //
+import 'package:capstone_project/theme/app_theme.dart';
+import 'package:capstone_project/widgets/app_bottom_navigation.dart';
 
 import 'edit_profile.dart';
 
@@ -14,7 +14,7 @@ class MyPage extends StatefulWidget {
 }
 
 class _MyPageState extends State<MyPage> {
-  String userId = '';     // 🔹 추가됨
+  String userId = ''; // 🔹 추가됨
   String userName = '';
   String phoneNumber = '';
   String email = '';
@@ -49,22 +49,13 @@ class _MyPageState extends State<MyPage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        centerTitle: true,
-        elevation: 0,
         title: const Text(
           '마이페이지',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.text),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
@@ -89,7 +80,7 @@ class _MyPageState extends State<MyPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '$userName님',  // ✅ userId로 표시
+                      '$userName님', // ✅ userId로 표시
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -100,12 +91,9 @@ class _MyPageState extends State<MyPage> {
                       phoneNumber,
                       style: const TextStyle(color: Colors.grey),
                     ),
-                    Text(
-                      email,
-                      style: const TextStyle(color: Colors.grey),
-                    ),
+                    Text(email, style: const TextStyle(color: Colors.grey)),
                   ],
-                )
+                ),
               ],
             ),
             const SizedBox(height: 30),
@@ -142,10 +130,7 @@ class _MyPageState extends State<MyPage> {
               children: const [
                 Icon(Icons.history, color: Color(0xFF8CAEF2)),
                 SizedBox(width: 8),
-                Text(
-                  '최근 조회 내역',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                Text('최근 조회 내역', style: TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 16),
@@ -167,46 +152,7 @@ class _MyPageState extends State<MyPage> {
       ),
 
       // 하단 네비게이션 바 (마이페이지 탭 활성화)
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        currentIndex: 3,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF010186),
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              Navigator.pushNamed(context, '/main');
-              break;
-            case 1:
-              Navigator.pushNamed(context, '/risk_analysis');
-              break;
-            case 2:
-              Navigator.pushNamed(context, '/contract_info_step');
-              break;
-            case 3:
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/home_icon.png')),
-            label: '홈',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/analysis_solid_icon.png')),
-            label: '위험도 분석',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/chart_underbar.png')),
-            label: '계약서 정보',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/mypage_icon.png')),
-            label: '마이페이지',
-          ),
-        ],
-      ),
+      bottomNavigationBar: const AppBottomNavigation(currentIndex: 3),
     );
   }
 }

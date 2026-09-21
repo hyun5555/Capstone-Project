@@ -1,0 +1,75 @@
+{
+  "result": {
+    "code": "CF-00000",
+    "message": "성공"
+  },
+  "data": {
+    "_note": "SYNTHETIC SAMPLE: 실제 건축물대장이 아닙니다. 필드 구조 시험/데모용 가상 데이터입니다.",
+    "resDocNo": "SAMPLE-0001",
+    "commUniqeNo": "0000000000",
+    "resUserAddr": "서울특별시 강남구 테스트로 100",
+    "commAddrRoadName": "서울특별시 강남구 테스트로 100",
+    "resIssueDate": "20260921",
+    "resIssueOgzNm": "가상구청",
+    "resNote": "",
+    "resDetailList": [
+      {
+        "resType": "사용승인일",
+        "resContents": "20140627"
+      },
+      {
+        "resType": "연면적",
+        "resContents": "1050.3"
+      }
+    ],
+    "resBuildingStatusList": [
+      {
+        "resType": "주",
+        "resFloor": "1층",
+        "resStructure": "철근콘크리트구조",
+        "resUseType": "다세대주택",
+        "resArea": "210.06"
+      },
+      {
+        "resType": "주",
+        "resFloor": "2층",
+        "resStructure": "철근콘크리트구조",
+        "resUseType": "다세대주택",
+        "resArea": "210.06"
+      },
+      {
+        "resType": "주",
+        "resFloor": "3층",
+        "resStructure": "철근콘크리트구조",
+        "resUseType": "다세대주택",
+        "resArea": "210.06"
+      },
+      {
+        "resType": "주",
+        "resFloor": "4층",
+        "resStructure": "철근콘크리트구조",
+        "resUseType": "다세대주택",
+        "resArea": "210.06"
+      },
+      {
+        "resType": "주",
+        "resFloor": "5층",
+        "resStructure": "철근콘크리트구조",
+        "resUseType": "다세대주택",
+        "resArea": "210.06"
+      }
+    ],
+    "resChangeList": [],
+    "resOwnerList": [
+      {
+        "resOwner": "이임*",
+        "resIdentityNo": "800101-1******",
+        "resUserAddr": "서울특별시 서초구 가상로 2",
+        "resOwnershipStake": "1/1",
+        "resChangeDate": "20190302",
+        "resChangeReason": "매매"
+      }
+    ],
+    "resViolationStatus": ""
+  }
+}

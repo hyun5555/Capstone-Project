@@ -1,283 +1,399 @@
-// lib/screens/risk_result.dart
 import 'package:capstone_project/screens/risk_detail.dart';
+import 'package:capstone_project/theme/app_theme.dart';
+import 'package:capstone_project/widgets/app_bottom_navigation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:capstone_project/services/api_service.dart';
 
-class RiskResultPage extends StatefulWidget {
-  final String address;
-  final int deposit;
-  final int marketPrice;
-  final int riskScore;
-  final List<Map<String, dynamic>> riskItems;
-
+class RiskResultPage extends StatelessWidget {
   const RiskResultPage({
     super.key,
     required this.address,
     required this.deposit,
-    required this.marketPrice,
+    this.marketPrice,
     required this.riskScore,
     required this.riskItems,
+    this.notices = const [],
   });
 
-  @override
-  State<RiskResultPage> createState() => _RiskResultPageState();
-}
-
-class _RiskResultPageState extends State<RiskResultPage> {
-  String userName = '';
-  late int riskScore;
-  late List<Map<String, dynamic>> riskDetails;
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    fetchUserInfo();
-    // ✅ 전달받은 데이터로 초기화
-    riskScore = widget.riskScore;
-    riskDetails = widget.riskItems;
-    isLoading = false;
-  }
-
-  Future<void> fetchUserInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    final storedEmail = prefs.getString("email") ?? "";
-    final token = prefs.getString("token") ?? "";
-
-    if (storedEmail.isEmpty || token.isEmpty) {
-      print("❌ 저장된 이메일 또는 토큰이 없습니다.");
-      return;
-    }
-
-    final result = await ApiService.getUserByEmail(storedEmail, token);
-    if (result["success"] == true) {
-      final data = result["data"];
-      setState(() {
-        userName = data["username"] ?? "알 수 없음";
-      });
-    } else {
-      print("❌ 사용자 이름 불러오기 실패: ${result["message"]}");
-    }
-  }
+  final String address;
+  final int deposit;
+  final int? marketPrice;
+  final int riskScore;
+  final List<Map<String, dynamic>> riskItems;
+  final List<String> notices;
 
   @override
   Widget build(BuildContext context) {
-    final Color themeColor = getRiskColor(riskScore);
-
+    final riskColor = getRiskColor(riskScore);
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          '전세 사기 리포트',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
-        ),
+        title: const Text('전세 위험도 리포트'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
+          tooltip: '뒤로 가기',
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '$userName님의 위험도 점수',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              address,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 16),
-            Center(
-              child: Container(
-                width: 280,
-                height: 280,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 240,
-                      height: 240,
-                      child: CircularProgressIndicator(
-                        value: riskScore / 100,
-                        strokeWidth: 20,
-                        backgroundColor: themeColor.withOpacity(0.2),
-                        valueColor: AlwaysStoppedAnimation<Color>(themeColor),
-                      ),
-                    ),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$riskScore점',
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: themeColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 14),
+            _RiskScoreCard(score: riskScore, color: riskColor),
+            const SizedBox(height: 12),
             Row(
               children: [
-                Image.asset('assets/pencil_icon.png', width: 20, height: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  '위험도 분석 리포트',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: _MoneyCard(
+                    label: '입력 보증금',
+                    value: _formatWon(deposit),
+                    icon: Icons.key_outlined,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MoneyCard(
+                    label: '추정 시세',
+                    value:
+                        marketPrice == null
+                            ? '확인 불가'
+                            : _formatWon(marketPrice!),
+                    icon: Icons.home_work_outlined,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            Column(
-              children: riskDetails
-                  .where((risk) => risk['title'] != null && risk['score'] != null)
-                  .map((risk) => _buildRiskReportItem(
-                title: risk['title'].toString().trim(),
-                score: risk['score'] ?? 0,
-                explanation: risk['explanation'] ?? '설명이 없습니다.',
-                themeColor: themeColor,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RiskDetailPage(
-                        title: risk['title'] ?? '',
-                        score: risk['score'] ?? 0,
-                        explanation: risk['explanation'] ?? '',
-                        themeColor: themeColor,
-                      ),
-                    ),
-                  );
-                },
-              ))
-                  .toList(),
+            if (notices.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.softBlue,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children:
+                      notices
+                          .map(
+                            (notice) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.info_outline_rounded,
+                                    size: 17,
+                                    color: AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 7),
+                                  Expanded(
+                                    child: Text(
+                                      notice,
+                                      style: const TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 12.5,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            const Text(
+              '항목별 분석',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
-
+            const SizedBox(height: 10),
+            if (riskItems.isEmpty)
+              const _EmptyAnalysis()
+            else
+              ...riskItems
+                  .where(
+                    (item) => item['title'] != null && item['score'] != null,
+                  )
+                  .map(
+                    (item) => _RiskItemCard(
+                      title: item['title'].toString().trim(),
+                      score: (item['score'] as num?)?.round() ?? 0,
+                      explanation:
+                          item['explanation']?.toString() ?? '설명이 없습니다.',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => RiskDetailPage(
+                                  title: item['title']?.toString() ?? '',
+                                  score: (item['score'] as num?)?.round() ?? 0,
+                                  explanation:
+                                      item['explanation']?.toString() ?? '',
+                                  themeColor: riskColor,
+                                ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        currentIndex: 1,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF010186),
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              Navigator.pushNamed(context, '/main');
-              break;
-            case 1:
-              break;
-            case 2:
-              Navigator.pushNamed(context, '/contract_info_step');
-              break;
-            case 3:
-              Navigator.pushNamed(context, '/my');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/home_icon.png')),
-            label: '홈',
+      bottomNavigationBar: const AppBottomNavigation(currentIndex: 1),
+    );
+  }
+
+  static String _formatWon(int value) => '$value원';
+
+  static Color getRiskColor(int score) {
+    if (score <= 20) return const Color(0xFF37A66A);
+    if (score <= 40) return const Color(0xFFE5A72F);
+    if (score <= 60) return const Color(0xFFE77C88);
+    return const Color(0xFFD95C66);
+  }
+}
+
+class _RiskScoreCard extends StatelessWidget {
+  const _RiskScoreCard({required this.score, required this.color});
+
+  final int score;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final label =
+        score <= 20
+            ? '안전'
+            : score <= 40
+            ? '주의'
+            : '위험';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 116,
+            height: 116,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox.expand(
+                  child: CircularProgressIndicator(
+                    value: (score / 100).clamp(0.0, 1.0).toDouble(),
+                    strokeWidth: 10,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: color.withValues(alpha: 0.14),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  ),
+                ),
+                Text(
+                  '$score점',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/analysis_solid_icon.png')),
-            label: '위험도 분석',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/chart_underbar.png')),
-            label: '계약서 정보',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/mypage_icon.png')),
-            label: '마이페이지',
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  '점수가 높을수록 확인이 필요한 위험 요소가 많습니다.',
+                  style: TextStyle(color: AppColors.muted, height: 1.4),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildRiskReportItem({
-    required String title,
-    required int score,
-    required String explanation,
-    required Color themeColor,
-    required VoidCallback onTap,
-  }) {
+class _MoneyCard extends StatelessWidget {
+  const _MoneyCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppColors.accent, size: 20),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RiskItemCard extends StatelessWidget {
+  const _RiskItemCard({
+    required this.title,
+    required this.score,
+    required this.explanation,
+    required this.onTap,
+  });
+
+  final String title;
+  final int score;
+  final String explanation;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = RiskResultPage.getRiskColor(score);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24.0),
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(17),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(17),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(17),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('🤔 ', style: TextStyle(fontSize: 18)),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '$score점',
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.muted,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: LinearProgressIndicator(
+                    value: (score / 100).clamp(0.0, 1.0).toDouble(),
+                    minHeight: 7,
+                    backgroundColor: color.withValues(alpha: 0.14),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.play_arrow,
-                  color: themeColor,
-                  size: 20,
+                const SizedBox(height: 10),
+                Text(
+                  explanation,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 12.5,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: score / 100,
-                minHeight: 14,
-                backgroundColor: themeColor.withOpacity(0.2),
-                valueColor: AlwaysStoppedAnimation<Color>(themeColor),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              height: 80,
-              decoration: BoxDecoration(
-                color: themeColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.all(12),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  explanation,
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
 
-  static Color getRiskColor(int score) {
-    if (score <= 20) return const Color(0xFF4CAF50); // 초록
-    if (score <= 40) return const Color(0xFFFFC107); // 노랑
-    if (score <= 60) return const Color(0xFFFFA9B3); // 연한 분홍
-    return const Color(0xFFE15B5B); // 진한 분홍
+class _EmptyAnalysis extends StatelessWidget {
+  const _EmptyAnalysis();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Text(
+        '표시할 세부 분석 항목이 없습니다.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: AppColors.muted),
+      ),
+    );
   }
 }

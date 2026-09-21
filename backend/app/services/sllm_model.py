@@ -3,7 +3,7 @@ import re
 import json
 from typing import Dict
 
-from app.config import OPENAI_API_KEY
+from app.config import LLM_MODEL, OPENAI_API_KEY
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
@@ -18,14 +18,14 @@ if not api_key:
 
 # ── 2) LangChain LLM 설정
 compare_llm = ChatOpenAI(
-    model="gpt-4",
-    temperature=0,
+    model=LLM_MODEL,
+    temperature=1,
     api_key=api_key
 )
 
 explain_llm = ChatOpenAI(
-    model="gpt-4",
-    temperature=0.7,
+    model=LLM_MODEL,
+    temperature=1,
     api_key=api_key
 )
 
@@ -99,12 +99,12 @@ compare_prompt = ChatPromptTemplate.from_template(
 compare_chain = compare_prompt | compare_llm | JsonOutputParser()
 
 
-def compare_flags_gpt4(reg: dict, bld: dict) -> Dict[str, str]:
+def compare_flags_llm(reg: dict, bld: dict, field_list=None) -> Dict[str, str]:
     try:
         result = compare_chain.invoke({
             "reg": json.dumps(reg, ensure_ascii=False, indent=2),
             "bld": json.dumps(bld, ensure_ascii=False, indent=2),
-            "field_list": ", ".join(patterns.keys())
+            "field_list": ", ".join(field_list or patterns.keys())
         })
 
         if not isinstance(result, dict):
@@ -112,8 +112,7 @@ def compare_flags_gpt4(reg: dict, bld: dict) -> Dict[str, str]:
 
         return result
 
-    except Exception as e:
-        print("❌ LangChain 비교 체인 실행 실패:", e)
+    except Exception:
         raise
 
 
@@ -160,8 +159,7 @@ def generate_explanations(flags: Dict[str, str], reg: dict, bld: dict) -> Dict[s
 
         return result
 
-    except Exception as e:
-        print("❌ LangChain 설명 생성 체인 실행 실패:", e)
+    except Exception:
         raise
 
 
@@ -204,9 +202,11 @@ def compile_report(case_id: str, address: str, flags: Dict[str, str], explanatio
             "table": table
         })
 
-    except Exception as e:
-        print("❌ LangChain 보고서 생성 체인 실행 실패:", e)
+    except Exception:
         raise
+
+
+# 근거 청크 기반 설명(RAG) 체인은 explain_chain.py 로 옮겼다. (프롬프트 v1/v2, 검증, 재시도)
 
 
 # ── 9) 엔트리 포인트 예시
@@ -222,7 +222,7 @@ if __name__ == "__main__":
         "공유면적: 12.1㎡, 연면적: 96.3㎡, 준공년도: 2018"
     )
 
-    flags = compare_flags_gpt4(sample_reg, sample_bld)
+    flags = compare_flags_llm(sample_reg, sample_bld)
     explanations = generate_explanations(flags, sample_reg, sample_bld)
     report = compile_report("case_001", "서울시 강남구", flags, explanations)
 

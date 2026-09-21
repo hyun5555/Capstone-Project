@@ -47,7 +47,7 @@
 ## AI / LLM
 
 * LangChain
-* GPT-4
+* GPT-5.6 Luna
 * KoAlpaca (초기 실험 모델)
 
 ## Database
@@ -88,7 +88,7 @@
 * CODEF API 기반 공공 문서 수집
 * 정규표현식을 활용한 주요 계약 정보 추출
 * LangChain 기반 Prompt Chain 구성
-* GPT-4 기반 의미 불일치 탐지
+* GPT-5.6 Luna 기반 의미 불일치 탐지
 * 위험도 분석 및 리포트 생성
 
 ### ✔ 분석 프로세스
@@ -193,7 +193,7 @@
 # 👨‍💻 담당 역할
 
 * FastAPI 기반 백엔드 개발
-* GPT-4 + LangChain 기반 의미 불일치 탐지 시스템 구현
+* GPT-5.6 Luna + LangChain 기반 의미 불일치 탐지 시스템 구현
 * 공공데이터 API 연동
 * 실거래가 분석 로직 구현
 * 전세가율 기반 위험도 분석 기능 구현

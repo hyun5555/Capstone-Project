@@ -1,357 +1,380 @@
+import 'package:capstone_project/theme/app_theme.dart';
+import 'package:capstone_project/widgets/app_bottom_navigation.dart';
 import 'package:flutter/material.dart';
 
 class RealTransactionReportPage extends StatefulWidget {
-  const RealTransactionReportPage({Key? key}) : super(key: key);
+  const RealTransactionReportPage({super.key});
 
   @override
-  _RealTransactionReportPageState createState() => _RealTransactionReportPageState();
+  State<RealTransactionReportPage> createState() =>
+      _RealTransactionReportPageState();
 }
 
 class _RealTransactionReportPageState extends State<RealTransactionReportPage> {
-  late Map<String, dynamic> result;
-  late Map<String, dynamic> jeonseRates;
-  late String location;
-  late String selectedPropertyType;
-
-  String resultLabel = '분석 중';
+  final TextEditingController _areaController = TextEditingController();
+  bool _loaded = false;
+  String location = '알 수 없음';
+  String resultLabel = '분석불가';
   String period = '';
   String avgPrice = '';
   String avgDeposit = '';
   String topType = '';
-  String houseType = '';
-  double topArea = 0.0;
-  double userArea = 0.0;
-  double depositPerM2 = 0.0;
-  double estimatedDeposit = 0.0;
-
-  double rate = 0.0;
-  String risk = '';
-
-  final TextEditingController _areaController = TextEditingController();
+  double topArea = 0;
+  double depositPerM2 = 0;
+  double estimatedDeposit = 0;
+  double rate = 0;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_loaded) return;
+    _loaded = true;
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is Map<String, dynamic>) {
-      result = args['result'] ?? {};
-      jeonseRates = args['jeonseRates'] ?? {};
-      selectedPropertyType = args['selectedPropertyType'] ?? '아파트';  // 기본값 아파트
-      location = result['region'] ?? '알 수 없음';
-      loadResultData();
-    } else {
-      result = {};
-      selectedPropertyType = '아파트';
-      location = '알 수 없음';
-    }
+    if (args is! Map<String, dynamic>) return;
+    final result =
+        args['result'] is Map
+            ? Map<String, dynamic>.from(args['result'] as Map)
+            : <String, dynamic>{};
+    location = result['region']?.toString() ?? '알 수 없음';
+    resultLabel =
+        result['status'] == 'ok'
+            ? result['risk_level']?.toString() ?? '분석불가'
+            : '분석불가';
+    period = result['sale_period']?.toString() ?? '';
+    final averageSale =
+        (result['average_sale_per_m2'] as num?)?.toDouble() ?? 0;
+    depositPerM2 = (result['average_deposit_per_m2'] as num?)?.toDouble() ?? 0;
+    avgPrice = '${averageSale.toStringAsFixed(0)}만원/㎡';
+    avgDeposit = '${depositPerM2.toStringAsFixed(0)}만원/㎡';
+    topType = result['most_traded_name']?.toString() ?? '-';
+    topArea = (result['most_traded_area'] as num?)?.toDouble() ?? 0;
+    rate = (result['jeonse_ratio'] as num?)?.toDouble() ?? 0;
   }
 
-  void loadResultData() {
-    print('result 전체 데이터: $result');
-    print('selectedPropertyType: $selectedPropertyType');
-    print('jeonserates keys: ${jeonseRates.keys}');
-
-    setState(() {
-      resultLabel = result['status'] ?? '분석불가';
-      houseType = result['house_type'] ?? '';
-      period = result['sale_period'] ?? '';
-      depositPerM2 = (result['average_deposit_per_m2'] ?? 0).toDouble();
-      double avgSale = (result['average_sale_per_m2'] ?? 0).toDouble();
-      avgPrice = '${avgSale.toStringAsFixed(0)}만원/㎡';
-      avgDeposit = '${depositPerM2.toStringAsFixed(0)}만원/㎡';
-      topType = result['most_traded_name'] ?? '';
-      topArea = (result['most_traded_area'] ?? 0).toDouble();
-
-      // selectedPropertyType에 따라 rate, risk 가져오기
-      String key = '';
-      if (selectedPropertyType == '아파트') {
-        key = '아파트_최근1년';
-      } else if (selectedPropertyType == '연립다세대') {
-        key = '연립다세대_최근1년';
-      } else {
-        key = '정보 없음';
-      }
-
-      if (jeonseRates.containsKey(key)) {
-        var data = jeonseRates[key];
-        rate = (data['rate'] ?? 0).toDouble();
-        risk = data['risk'] ?? '정보 없음';
-        resultLabel = risk;
-      } else {
-        rate = 0.0;
-        risk = '정보 없음';
-        resultLabel = '분석불가';
-      }
-    });
+  @override
+  void dispose() {
+    _areaController.dispose();
+    super.dispose();
   }
 
-  void calculateEstimatedDeposit() {
+  void _calculateEstimatedDeposit() {
     setState(() {
-      userArea = double.tryParse(_areaController.text) ?? 0.0;
-      estimatedDeposit = depositPerM2 * userArea;
+      final area = double.tryParse(_areaController.text) ?? 0;
+      estimatedDeposit = depositPerM2 * area;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final Color resultColor = getAnalysisColor(resultLabel);
-
+    final resultColor = _analysisColor(resultLabel);
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          '실거래가 분석 리포트',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
+        title: const Text('실거래가 분석 리포트'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
+          tooltip: '뒤로 가기',
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                location,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+            Text(
+              location,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 20),
-            Center(
-              child: Container(
-                width: 280,
-                height: 280,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 240,
-                      height: 240,
-                      child: CircularProgressIndicator(
-                        value: rate/100,
-                        strokeWidth: 20,
-                        backgroundColor: resultColor.withOpacity(0.2),
-                        valueColor: AlwaysStoppedAnimation<Color>(resultColor),
-                      ),
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          resultLabel,
-                          style: TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.bold,
-                            color: resultColor.withOpacity(0.8),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${rate.toStringAsFixed(1)}%',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
-                            color: resultColor.withOpacity(0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+            const SizedBox(height: 14),
+            _ScoreCard(
+              label: resultLabel,
+              value: rate,
+              color: resultColor,
+              caption: '최근 실거래 기준 전세가율',
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              '거래 요약',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 1.55,
+              children: [
+                _MetricCard(
+                  icon: Icons.calendar_month_outlined,
+                  label: '거래 기간',
+                  value: period.isEmpty ? '-' : period,
                 ),
-              ),
+                _MetricCard(
+                  icon: Icons.sell_outlined,
+                  label: '평균 매매가',
+                  value: avgPrice,
+                ),
+                _MetricCard(
+                  icon: Icons.key_outlined,
+                  label: '평균 보증금',
+                  value: avgDeposit,
+                ),
+                _MetricCard(
+                  icon: Icons.apartment_rounded,
+                  label: '최다 거래',
+                  value: topType,
+                ),
+              ],
             ),
-            const SizedBox(height: 30),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(18),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Image.asset('assets/pencil_icon.png', width: 45, height: 45),
-                      const SizedBox(width: 8),
-                      const Text(
-                        '실거래가 & 전세 보증금 분석',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                  const Text(
+                    '내 집 면적으로 예상 보증금 계산',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
-                  const SizedBox(height: 16),
-
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.edit_calendar, size: 20),
-                            const SizedBox(width: 6),
-                            Text(
-                              period,
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '• 평균 매매가: $avgPrice',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          '• 평균 보증금: $avgDeposit',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          '• 가장 많이 거래된 건물 이름: $topType',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          '• 가장 많이 거래된 면적대: $topArea',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                  const SizedBox(height: 6),
+                  Text(
+                    '최다 거래 면적 ${topArea.toStringAsFixed(1)}㎡ · 지역 평균 보증금 기준',
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12.5,
                     ),
                   ),
-                  const SizedBox(height: 30),
-                  Row(
-                    children: const [
-                      Icon(Icons.square_foot, color: Colors.blue),
-                      SizedBox(width: 6),
-                      Text(
-                        '임차 주택 전용면적 입력',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
                         child: TextField(
                           controller: _areaController,
                           keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _calculateEstimatedDeposit(),
                           decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            labelText: '전용면적 (㎡)',
+                            hintText: '전용면적',
                             suffixText: '㎡',
                           ),
-                          onSubmitted: (_) => calculateEstimatedDeposit(), // 엔터 입력 시 계산
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 9),
                       ElevatedButton(
-                        onPressed: calculateEstimatedDeposit, // 버튼 클릭 시 계산
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          backgroundColor: Colors.indigo,
-                        ),
-                        child: const Text(
-                          '계산',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
+                        onPressed: _calculateEstimatedDeposit,
+                        child: const Text('계산'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  if (estimatedDeposit > 0)
-                    Text(
-                      '👉 예상 적정 전세 보증금: ${estimatedDeposit.toStringAsFixed(0)}만원',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+                  if (estimatedDeposit > 0) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.softBlue,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        '예상 적정 보증금  ${estimatedDeposit.toStringAsFixed(0)}만원',
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
-                  const SizedBox(height: 16),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: LinearProgressIndicator(
-                      value: 0.7,
-                      minHeight: 12,
-                      backgroundColor: resultColor.withOpacity(0.2),
-                      valueColor: AlwaysStoppedAnimation<Color>(resultColor),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '해당 지역의 최근 실거래 데이터를 기반으로 분석한 결과, 평균 전세 보증금은 약 $avgDeposit입니다.\n'
-                        '임차하려는 주택의 전용면적에 따라 실제 적정 전세가는 달라질 수 있으니, 보증금이 이보다 크게 높지 않도록 주의하세요',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  ],
                 ],
               ),
+            ),
+            const SizedBox(height: 12),
+            const _InfoNotice(
+              text:
+                  '최근 신고된 실거래를 기준으로 한 참고값입니다. 같은 지역이라도 층, 면적, 건물 상태에 따라 실제 금액은 달라질 수 있습니다.',
             ),
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        currentIndex: 1,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF010186),
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              Navigator.pushNamed(context, '/main');
-              break;
-            case 1:
-              break;
-            case 2:
-              Navigator.pushNamed(context, '/contract_info_step');
-              break;
-            case 3:
-              Navigator.pushNamed(context, '/my');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/home_icon.png')),
-            label: '홈',
+      bottomNavigationBar: const AppBottomNavigation(currentIndex: 1),
+    );
+  }
+
+  static Color _analysisColor(String label) {
+    if (label == '안전') return const Color(0xFF37A66A);
+    if (label == '주의') return const Color(0xFFE5A72F);
+    return const Color(0xFFD95C66);
+  }
+}
+
+class _ScoreCard extends StatelessWidget {
+  const _ScoreCard({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.caption,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 116,
+            height: 116,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox.expand(
+                  child: CircularProgressIndicator(
+                    value: (value / 100).clamp(0.0, 1.0).toDouble(),
+                    strokeWidth: 10,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: color.withValues(alpha: 0.14),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  ),
+                ),
+                Text(
+                  '${value.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/analysis_solid_icon.png')),
-            label: '위험도 분석',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/chart_underbar.png')),
-            label: '계약서 정보',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/mypage_icon.png')),
-            label: '마이페이지',
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  caption,
+                  style: const TextStyle(color: AppColors.muted, height: 1.4),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+}
 
-  Color getAnalysisColor(String label) {
-    switch (label) {
-      case '안전':
-        return const Color(0xFF4CAF50);
-      case '주의':
-        return const Color(0xFFFFC107);
-      case '위험':
-      default:
-        return const Color(0xFFE15B5B);
-    }
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: AppColors.accent, size: 20),
+          const SizedBox(height: 7),
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoNotice extends StatelessWidget {
+  const _InfoNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.softBlue,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.primary,
+            size: 19,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 12.5,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

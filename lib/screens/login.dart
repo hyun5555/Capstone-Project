@@ -1,19 +1,22 @@
-import 'package:flutter/material.dart';
 import 'package:capstone_project/screens/mainpage.dart';
 import 'package:capstone_project/screens/sign_up.dart';
 import 'package:capstone_project/services/api_service.dart';
+import 'package:capstone_project/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
   @override
-  _LoginPageState createState() => _LoginPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
   bool _loading = false;
+  bool _hidePassword = true;
   String? _error;
 
   @override
@@ -25,10 +28,9 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _onLoginPressed() async {
     final email = _idController.text.trim();
-    final pw = _passwordController.text;
-
-    if (email.isEmpty || pw.isEmpty) {
-      setState(() => _error = "아이디와 비밀번호를 입력하세요.");
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _error = '아이디와 비밀번호를 입력하세요.');
       return;
     }
 
@@ -36,128 +38,159 @@ class _LoginPageState extends State<LoginPage> {
       _loading = true;
       _error = null;
     });
+    final result = await ApiService.login(email: email, password: password);
+    if (!mounted) return;
+    setState(() => _loading = false);
 
-    final result = await ApiService.login(email: email, password: pw);
-    print("🧪 로그인 응답: $result");
-
-    setState(() {
-      _loading = false;
-    });
-
-    if (result["success"] == true) {
-      final data = result["data"]; // ✅ 실제 응답 본문
-      final userId = data["user"]["user_id"].toString();
-      final token = data["access_token"];
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("userId", userId);
-      await prefs.setString("token", token);
-      await prefs.setString("email", data["user"]["email"]);  // 👈 이메일도 저장
-
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainPage()),
-      );
-    } else {
-      setState(() => _error = result["message"] as String);
+    if (result['success'] != true) {
+      setState(() => _error = result['message']?.toString() ?? '로그인에 실패했습니다.');
+      return;
     }
+
+    final data = result['data'];
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userId', data['user']['user_id'].toString());
+    await prefs.setString('token', data['access_token']);
+    await prefs.setString('email', data['user']['email']);
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const MainPage()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          Positioned(
-            top: 261,
-            left: 71,
-            child: SizedBox(
-              width: 259,
-              height: 45,
-              child: TextField(
-                controller: _idController,
-                decoration: InputDecoration(
-                  hintText: '아이디',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(5),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.home_work_outlined,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 307,
-            left: 71,
-            child: SizedBox(
-              width: 259,
-              height: 45,
-              child: TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: '비밀번호',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(5),
+                  const SizedBox(height: 28),
+                  const Text(
+                    '안전한 전세계약의 시작',
+                    style: TextStyle(
+                      fontSize: 27,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.7,
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ),
-          if (_error != null)
-            Positioned(
-              top: 360,
-              left: 71,
-              child: SizedBox(
-                width: 259,
-                child: Text(
-                  _error!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            ),
-          Positioned(
-            top: 391,
-            left: 71,
-            child: SizedBox(
-              width: 259,
-              height: 45,
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                onPressed: _onLoginPressed,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.black),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '계약 전 확인해야 할 정보를 간편하게 분석해 보세요.',
+                    style: TextStyle(color: AppColors.muted, height: 1.45),
                   ),
-                ),
-                child: const Text(
-                  '로그인',
-                  style: TextStyle(color: Colors.black, fontSize: 18),
-                ),
+                  const SizedBox(height: 36),
+                  TextField(
+                    controller: _idController,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: '아이디 또는 이메일',
+                      prefixIcon: Icon(Icons.person_outline_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: _hidePassword,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _onLoginPressed(),
+                    decoration: InputDecoration(
+                      labelText: '비밀번호',
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                      suffixIcon: IconButton(
+                        tooltip: _hidePassword ? '비밀번호 보기' : '비밀번호 숨기기',
+                        onPressed: () {
+                          setState(() => _hidePassword = !_hidePassword);
+                        },
+                        icon: Icon(
+                          _hidePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10, left: 4),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _loading ? null : _onLoginPressed,
+                      child:
+                          _loading
+                              ? const SizedBox(
+                                width: 21,
+                                height: 21,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                              : const Text('로그인'),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        '처음 이용하시나요?',
+                        style: TextStyle(color: AppColors.muted),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SignUpPage(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          '회원가입',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-          Positioned(
-            top: 448,
-            left: 76,
-            child: GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => SignUpPage()),
-              ),
-              child: const Text(
-                '회원가입',
-                style: TextStyle(fontSize: 13),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

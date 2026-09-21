@@ -3,7 +3,13 @@ import json
 
 import chromadb
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
-from app.config import CHROMA_PERSIST_DIRECTORY, OPENAI_API_KEY
+from app.config import (
+    CHROMA_CHUNK_COLLECTION,
+    CHROMA_LEGAL_COLLECTION,
+    CHROMA_PERSIST_DIRECTORY,
+    EMBEDDING_MODEL,
+    OPENAI_API_KEY,
+)
 
 # ── 1) OpenAI API 키 로딩 및 임베딩 함수 설정
 api_key = OPENAI_API_KEY
@@ -92,3 +98,36 @@ def build_vector_docs(registry_list, building_list):
             "metadata": {"address": reg["address"]}
         })
     upsert_property_docs(docs)
+
+
+# ── 7) 청크 단위 저장소 (분석 건별 case_id 로 검색 범위를 제한한다)
+_chunk_store = None
+_legal_store = None
+
+
+def get_chunk_store():
+    """청크 컬렉션은 기존 property_docs 와 분리한다 (임베딩 모델과 거리 함수가 다르다)."""
+    global _chunk_store
+    if _chunk_store is None:
+        from app.services.chunk_store import ChunkStore
+        chunk_collection = client.get_or_create_collection(
+            name=CHROMA_CHUNK_COLLECTION,
+            embedding_function=OpenAIEmbeddingFunction(api_key=api_key, model_name=EMBEDDING_MODEL),
+            metadata={"hnsw:space": "cosine"},
+        )
+        _chunk_store = ChunkStore(chunk_collection)
+    return _chunk_store
+
+
+def get_legal_store():
+    """법률·전세계약 자료는 개별 매물 문서와 섞이지 않게 별도 컬렉션에 저장한다."""
+    global _legal_store
+    if _legal_store is None:
+        from app.services.chunk_store import ChunkStore
+        legal_collection = client.get_or_create_collection(
+            name=CHROMA_LEGAL_COLLECTION,
+            embedding_function=OpenAIEmbeddingFunction(api_key=api_key, model_name=EMBEDDING_MODEL),
+            metadata={"hnsw:space": "cosine"},
+        )
+        _legal_store = ChunkStore(legal_collection)
+    return _legal_store

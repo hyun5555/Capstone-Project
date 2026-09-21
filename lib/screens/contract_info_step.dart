@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:capstone_project/theme/app_theme.dart';
+import 'package:capstone_project/widgets/app_bottom_navigation.dart';
 
 class ContractInfoStepPage extends StatelessWidget {
   const ContractInfoStepPage({super.key});
@@ -14,20 +16,16 @@ class ContractInfoStepPage extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
           '계약 정보 제공',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
-            color: Colors.black,
+            color: AppColors.text,
           ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => Navigator.pop(context),
@@ -51,7 +49,7 @@ class ContractInfoStepPage extends StatelessWidget {
             const SizedBox(height: 24),
 
             ...steps.map(
-                  (step) => Padding(
+              (step) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: SizedBox(
                   width: double.infinity,
@@ -90,8 +88,11 @@ class ContractInfoStepPage extends StatelessWidget {
                   // TODO: 계약 정보 도움 페이지 이동
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF010186),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -110,46 +111,7 @@ class ContractInfoStepPage extends StatelessWidget {
         ),
       ),
 
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        currentIndex: 2,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF010186),
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              Navigator.pushNamed(context, '/main');
-              break;
-            case 1:
-              Navigator.pushNamed(context, '/risk_analysis');
-              break;
-            case 2:
-              break;
-            case 3:
-              Navigator.pushNamed(context, '/my');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/home_icon.png')),
-            label: '홈',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/analysis_solid_icon.png')),
-            label: '위험도 분석',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/chart_underbar.png')),
-            label: '계약서 정보',
-          ),
-          BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/mypage_icon.png')),
-            label: '마이페이지',
-          ),
-        ],
-      ),
+      bottomNavigationBar: const AppBottomNavigation(currentIndex: 2),
     );
   }
 }

@@ -1,63 +1,68 @@
-import 'package:flutter/material.dart';
 import 'package:capstone_project/screens/create_account.dart';
+import 'package:capstone_project/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 
-class SignUpPage extends StatefulWidget {
-  @override
-  _SignUpPageState createState() => _SignUpPageState();
-}
+class SignUpPage extends StatelessWidget {
+  const SignUpPage({super.key});
 
-class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold( // Scaffold로 감싸기
-      backgroundColor: Colors.white,
-      body: Container(
-        width: 402,
-        height: 874,
-        decoration: BoxDecoration(
-          color: Color.fromRGBO(255, 255, 255, 1),
-        ),
-        child: Stack(
-          children: <Widget>[
-            // 다른 위젯들이 여기 올 수 있음
-
-            // 이메일로 가입하기 버튼
-            Positioned(
-              top: 335,
-              left: 72,
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => CreateAccountPage()),
-                  );
-                },
-                child: Container(
-                  width: 252,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: Colors.white,
-                    border: Border.all(
-                      color: Colors.black,
-                      width: 1,
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '이메일로 가입하기',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontFamily: 'Noto Sans',
-                      fontSize: 18,
-                      fontWeight: FontWeight.normal,
-                      height: 1,
-                    ),
-                  ),
+    return Scaffold(
+      appBar: AppBar(title: const Text('회원가입')),
+      body: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Spacer(),
+              Container(
+                width: 72,
+                height: 72,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.softBlue,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: const Icon(
+                  Icons.mark_email_read_outlined,
+                  color: AppColors.primary,
+                  size: 36,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              const Text(
+                '이메일로 간편하게\n계정을 만들어 보세요',
+                style: TextStyle(
+                  fontSize: 27,
+                  fontWeight: FontWeight.w800,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                '분석 내역을 안전하게 저장하고 언제든 다시 확인할 수 있어요.',
+                style: TextStyle(color: AppColors.muted, height: 1.5),
+              ),
+              const Spacer(flex: 2),
+              SizedBox(
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CreateAccountPage(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.email_outlined),
+                  label: const Text('이메일로 가입하기'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

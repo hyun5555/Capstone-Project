@@ -44,5 +44,5 @@ app.include_router(trade_price.router)
 app.include_router(address.router)
 app.include_router(transaction_summary.router, tags=["Transaction Summary"])
 app.include_router(jeonse_rate.router, tags=["Rent Rate"])
-app.include_router(codef_auth.router, prefix="/codef", tags=["CODEF 인증"])
+app.include_router(codef_auth.router)   # 라우터 자체에 /codef prefix 가 있다
 #app.include_router(risk_score.router, tags=["Risk Score"])

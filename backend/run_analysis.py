@@ -1,7 +1,7 @@
 # backend/run_analysis.py
 import json
 from pathlib import Path
-from app.services.sllm_model import extract_fields, compare_flags_gpt4, generate_explanations, compile_report
+from app.services.sllm_model import extract_fields, compare_flags_llm, generate_explanations, compile_report
 from app.services.risk_score import calculate_risk_score
 from app.services.transaction_data_parser import fetch_exact_jeonse_records
 from app.services.vector_db import store_full_analysis
@@ -92,7 +92,7 @@ def main():
         # 3) 필드 추출 및 일치/불일치 플래그
         reg_fields = extract_fields(reg_text)
         bld_fields = extract_fields(bld_text)
-        flags = compare_flags_gpt4(reg_fields, bld_fields)
+        flags = compare_flags_llm(reg_fields, bld_fields)
 
         # 4) KoAlpaca로 설명 생성
         explanations = generate_explanations(flags, reg_fields, bld_fields)
@@ -104,7 +104,7 @@ def main():
         for k in flags:
             print(f"{k:<14} | {flags[k]:<8} | {explanations.get(k, '')}")
 
-        # 6) GPT-4로 최종 보고서
+        # 6) LLM으로 최종 보고서
         #report = compile_report(case_id, address, flags, explanations)
         #print("\n=== 최종 보고서 ===\n", report)
 

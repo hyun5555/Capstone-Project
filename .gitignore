@@ -50,6 +50,7 @@ app.*.map.json
 /backend/.env
 /backend/myenv/
 /backend/chroma_data/
+/backend/backups/
 
 # Python 백엔드 관련
 __pycache__/
@@ -62,3 +63,9 @@ alembic/versions/
 # DB, 캐시 파일
 *.sqlite3
 *.db
+
+# CODEF 원본 응답 캡처 (개인정보 포함 — 커밋 금지)
+/backend/codef_captures/
+
+# 평가 결과 (python -m evaluation)
+/backend/eval_results/

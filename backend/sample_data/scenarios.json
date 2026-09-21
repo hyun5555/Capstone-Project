@@ -1,0 +1,257 @@
+{
+  "_note": "모든 이름·주소·권리관계는 기능 검증을 위해 만든 합성 데이터이며 실제 인물·부동산과 무관합니다.",
+  "scenarios": {
+    "safe": {
+      "description": "소유자와 건물 정보가 일치하고 유효한 권리 및 위반 사항이 없는 정상 계약",
+      "request": {"deposit": 300000000, "marketPrice": 500000000},
+      "expected": {"owner_status": "일치", "active_rights": [], "risk_score": 0.0, "risk_grade": "안전"},
+      "registry": {
+        "_scenario": "safe",
+        "resRegisterEntriesList": [{
+          "resRealty": "서울특별시 강남구 테스트로 1 안전빌 제5층 제501호",
+          "resRegistrationHisList": [
+            {"resType": "표제부", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "서울특별시 강남구 테스트로 1 철근콘크리트구조 5층 다세대주택 연면적 1,050.3㎡ 2014년 6월 27일 신축"},
+              {"resNumber": "2", "resContents": "전유부분의 건물의 표시 제5층 제501호 철근콘크리트구조 전용면적 84.9㎡"}
+            ]}]},
+            {"resType": "갑구", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "1 소유권이전 2019년3월2일 제10001호 원인 매매 소유자 가상안전 900101-******* 서울특별시 강남구 가상로 1"}
+            ]}]},
+            {"resType": "을구", "resContentsList": [{"resDetailList": []}]}
+          ]
+        }]
+      },
+      "building": {
+        "_scenario": "safe",
+        "resDocNo": "SYNTH-SAFE",
+        "resUserAddr": "서울특별시 강남구 테스트로 1",
+        "resDetailList": [
+          {"resType": "사용승인일", "resContents": "20140627"},
+          {"resType": "연면적", "resContents": "1050.3"},
+          {"resType": "전용면적", "resContents": "84.9"}
+        ],
+        "resBuildingStatusList": [{"resFloor": "5층", "resStructure": "철근콘크리트구조", "resUseType": "다세대주택", "resArea": "210.06"}],
+        "resOwnerList": [{"resOwner": "가상*전", "resIdentityNo": "900101-1******", "resOwnershipStake": "1/1", "resChangeDate": "20190302", "resChangeReason": "매매"}],
+        "resViolationStatus": "해당없음"
+      }
+    },
+    "owner_mismatch": {
+      "description": "등기부 최종 소유자와 건축물대장 소유자가 다른 계약",
+      "request": {"deposit": 250000000, "marketPrice": 500000000},
+      "expected": {"owner_status": "불일치", "active_rights": [], "risk_score": 14.7, "risk_grade": "주의"},
+      "registry": {
+        "_scenario": "owner_mismatch",
+        "resRegisterEntriesList": [{
+          "resRealty": "서울특별시 강남구 테스트로 2 불일치빌 제5층 제502호",
+          "resRegistrationHisList": [
+            {"resType": "표제부", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "서울특별시 강남구 테스트로 2 철근콘크리트구조 5층 다세대주택 연면적 1,050.3㎡ 2014년 6월 27일 신축"},
+              {"resNumber": "2", "resContents": "전유부분의 건물의 표시 제5층 제502호 철근콘크리트구조 전용면적 84.9㎡"}
+            ]}]},
+            {"resType": "갑구", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "1 소유권이전 2020년4월3일 제20001호 원인 매매 소유자 가상임대 880202-******* 서울특별시 강남구 가상로 2"}
+            ]}]},
+            {"resType": "을구", "resContentsList": [{"resDetailList": []}]}
+          ]
+        }]
+      },
+      "building": {
+        "_scenario": "owner_mismatch",
+        "resDocNo": "SYNTH-OWNER-MISMATCH",
+        "resUserAddr": "서울특별시 강남구 테스트로 2",
+        "resDetailList": [
+          {"resType": "사용승인일", "resContents": "20140627"},
+          {"resType": "연면적", "resContents": "1050.3"},
+          {"resType": "전용면적", "resContents": "84.9"}
+        ],
+        "resBuildingStatusList": [{"resFloor": "5층", "resStructure": "철근콘크리트구조", "resUseType": "다세대주택", "resArea": "210.06"}],
+        "resOwnerList": [{"resOwner": "다른*유", "resIdentityNo": "850505-1******", "resOwnershipStake": "1/1", "resChangeDate": "20181201", "resChangeReason": "매매"}],
+        "resViolationStatus": "위반건축물 아님"
+      }
+    },
+    "active_seizure": {
+      "description": "현재 유효한 압류와 강제경매개시결정이 존재하는 계약",
+      "request": {"deposit": 200000000, "marketPrice": 500000000},
+      "expected": {"owner_status": "일치", "active_rights": ["경매개시결정", "압류"], "risk_score": 7.2, "risk_grade": "주의"},
+      "registry": {
+        "_scenario": "active_seizure",
+        "resRegisterEntriesList": [{
+          "resRealty": "서울특별시 강남구 테스트로 3 압류빌 제5층 제503호",
+          "resRegistrationHisList": [
+            {"resType": "표제부", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "서울특별시 강남구 테스트로 3 철근콘크리트구조 5층 다세대주택 연면적 1,050.3㎡ 2014년 6월 27일 신축"},
+              {"resNumber": "2", "resContents": "전유부분의 건물의 표시 제5층 제503호 철근콘크리트구조 전용면적 84.9㎡"}
+            ]}]},
+            {"resType": "갑구", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "1 소유권이전 2019년3월2일 제30001호 원인 매매 소유자 가상압류 870303-******* 서울특별시 강남구 가상로 3"},
+              {"resNumber": "2", "resContents": "2 압류 2025년1월10일 제30002호 권리자 가상세무서"},
+              {"resNumber": "3", "resContents": "3 강제경매개시결정 2025년5월20일 제30003호 채권자 가상채권자"}
+            ]}]},
+            {"resType": "을구", "resContentsList": [{"resDetailList": []}]}
+          ]
+        }]
+      },
+      "building": {
+        "_scenario": "active_seizure",
+        "resDocNo": "SYNTH-SEIZURE",
+        "resUserAddr": "서울특별시 강남구 테스트로 3",
+        "resDetailList": [
+          {"resType": "사용승인일", "resContents": "20140627"},
+          {"resType": "연면적", "resContents": "1050.3"},
+          {"resType": "전용면적", "resContents": "84.9"}
+        ],
+        "resBuildingStatusList": [{"resFloor": "5층", "resStructure": "철근콘크리트구조", "resUseType": "다세대주택", "resArea": "210.06"}],
+        "resOwnerList": [{"resOwner": "가상*류", "resIdentityNo": "870303-1******", "resOwnershipStake": "1/1", "resChangeDate": "20190302", "resChangeReason": "매매"}],
+        "resViolationStatus": "해당없음"
+      }
+    },
+    "excessive_mortgage": {
+      "description": "시세 5억원 주택에 채권최고액 3억원과 보증금 2억원이 겹치는 깡통전세 위험",
+      "request": {"deposit": 200000000, "marketPrice": 500000000},
+      "expected": {"owner_status": "일치", "active_rights": ["근저당권"], "risk_score": 43.7, "risk_grade": "위험"},
+      "registry": {
+        "_scenario": "excessive_mortgage",
+        "resRegisterEntriesList": [{
+          "resRealty": "서울특별시 강남구 테스트로 4 근저당빌 제5층 제504호",
+          "resRegistrationHisList": [
+            {"resType": "표제부", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "서울특별시 강남구 테스트로 4 철근콘크리트구조 5층 다세대주택 연면적 1,050.3㎡ 2014년 6월 27일 신축"},
+              {"resNumber": "2", "resContents": "전유부분의 건물의 표시 제5층 제504호 철근콘크리트구조 전용면적 84.9㎡"}
+            ]}]},
+            {"resType": "갑구", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "1 소유권이전 2019년3월2일 제40001호 원인 매매 소유자 가상근저 860404-******* 서울특별시 강남구 가상로 4"}
+            ]}]},
+            {"resType": "을구", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "1 근저당권설정 2024년8월1일 제40002호 채권최고액 금300,000,000원 채무자 가상근저 근저당권자 주식회사가상은행"}
+            ]}]}
+          ]
+        }]
+      },
+      "building": {
+        "_scenario": "excessive_mortgage",
+        "resDocNo": "SYNTH-MORTGAGE",
+        "resUserAddr": "서울특별시 강남구 테스트로 4",
+        "resDetailList": [
+          {"resType": "사용승인일", "resContents": "20140627"},
+          {"resType": "연면적", "resContents": "1050.3"},
+          {"resType": "전용면적", "resContents": "84.9"}
+        ],
+        "resBuildingStatusList": [{"resFloor": "5층", "resStructure": "철근콘크리트구조", "resUseType": "다세대주택", "resArea": "210.06"}],
+        "resOwnerList": [{"resOwner": "가상*저", "resIdentityNo": "860404-1******", "resOwnershipStake": "1/1", "resChangeDate": "20190302", "resChangeReason": "매매"}],
+        "resViolationStatus": "해당없음"
+      }
+    },
+    "cancelled_rights": {
+      "description": "과거 가압류와 근저당권이 있었지만 모두 말소되어 현재 위험 권리에서 제외되는 계약",
+      "request": {"deposit": 250000000, "marketPrice": 500000000},
+      "expected": {"owner_status": "일치", "active_rights": [], "risk_score": 0.0, "risk_grade": "안전"},
+      "registry": {
+        "_scenario": "cancelled_rights",
+        "resRegisterEntriesList": [{
+          "resRealty": "서울특별시 강남구 테스트로 5 말소빌 제5층 제505호",
+          "resRegistrationHisList": [
+            {"resType": "표제부", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "서울특별시 강남구 테스트로 5 철근콘크리트구조 5층 다세대주택 연면적 1,050.3㎡ 2014년 6월 27일 신축"},
+              {"resNumber": "2", "resContents": "전유부분의 건물의 표시 제5층 제505호 철근콘크리트구조 전용면적 84.9㎡"}
+            ]}]},
+            {"resType": "갑구", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "1 소유권이전 2019년3월2일 제50001호 원인 매매 소유자 가상말소 850505-******* 서울특별시 강남구 가상로 5"},
+              {"resNumber": "2", "resContents": "2 가압류 2022년4월1일 제50002호 청구금액 금30,000,000원 채권자 가상채권자"},
+              {"resNumber": "3", "resContents": "3 2번가압류등기말소 2023년1월5일 제50003호 해제"}
+            ]}]},
+            {"resType": "을구", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "1 근저당권설정 2021년3월3일 제50004호 채권최고액 금300,000,000원 채무자 가상말소 근저당권자 주식회사가상은행"},
+              {"resNumber": "2", "resContents": "2 1번근저당권설정등기말소 2024년2월2일 제50005호 해지"}
+            ]}]}
+          ]
+        }]
+      },
+      "building": {
+        "_scenario": "cancelled_rights",
+        "resDocNo": "SYNTH-CANCELLED",
+        "resUserAddr": "서울특별시 강남구 테스트로 5",
+        "resDetailList": [
+          {"resType": "사용승인일", "resContents": "20140627"},
+          {"resType": "연면적", "resContents": "1050.3"},
+          {"resType": "전용면적", "resContents": "84.9"}
+        ],
+        "resBuildingStatusList": [{"resFloor": "5층", "resStructure": "철근콘크리트구조", "resUseType": "다세대주택", "resArea": "210.06"}],
+        "resOwnerList": [{"resOwner": "가상*소", "resIdentityNo": "850505-1******", "resOwnershipStake": "1/1", "resChangeDate": "20190302", "resChangeReason": "매매"}],
+        "resViolationStatus": "해당없음"
+      }
+    },
+    "violation_nonresidential": {
+      "description": "건물 용도가 근린생활시설이고 건축물대장에 위반건축물로 표시된 계약",
+      "request": {"deposit": 100000000, "marketPrice": 300000000},
+      "expected": {"owner_status": "일치", "active_rights": [], "risk_score": 13.6, "risk_grade": "위험"},
+      "registry": {
+        "_scenario": "violation_nonresidential",
+        "resRegisterEntriesList": [{
+          "resRealty": "서울특별시 강남구 테스트로 6 위반상가 제2층 제201호",
+          "resRegistrationHisList": [
+            {"resType": "표제부", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "서울특별시 강남구 테스트로 6 철근콘크리트구조 3층 제2종근린생활시설 연면적 450.0㎡ 2018년 9월 10일 신축"},
+              {"resNumber": "2", "resContents": "전유부분의 건물의 표시 제2층 제201호 철근콘크리트구조 전용면적 75.0㎡"}
+            ]}]},
+            {"resType": "갑구", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "1 소유권이전 2021년3월2일 제60001호 원인 매매 소유자 가상위반 840606-******* 서울특별시 강남구 가상로 6"}
+            ]}]},
+            {"resType": "을구", "resContentsList": [{"resDetailList": []}]}
+          ]
+        }]
+      },
+      "building": {
+        "_scenario": "violation_nonresidential",
+        "resDocNo": "SYNTH-VIOLATION",
+        "resUserAddr": "서울특별시 강남구 테스트로 6",
+        "resNote": "베란다 8.5㎡ 무단 증축 확인",
+        "resDetailList": [
+          {"resType": "사용승인일", "resContents": "20180910"},
+          {"resType": "연면적", "resContents": "450.0"},
+          {"resType": "전용면적", "resContents": "75.0"}
+        ],
+        "resBuildingStatusList": [{"resFloor": "2층", "resStructure": "철근콘크리트구조", "resUseType": "제2종근린생활시설", "resArea": "150.0"}],
+        "resChangeList": [{"resChangeDate": "20250301", "resChangeReason": "무단 증축 적발", "resContents": "베란다 8.5㎡"}],
+        "resOwnerList": [{"resOwner": "가상*반", "resIdentityNo": "840606-1******", "resOwnershipStake": "1/1", "resChangeDate": "20210302", "resChangeReason": "매매"}],
+        "resViolationStatus": "위반건축물"
+      }
+    },
+    "lease_rights": {
+      "description": "선순위 전세권과 임차권등기명령이 함께 남아 있는 계약",
+      "request": {"deposit": 150000000, "marketPrice": 500000000},
+      "expected": {"owner_status": "일치", "active_rights": ["임차권", "전세권"], "risk_score": 18.0, "risk_grade": "주의"},
+      "registry": {
+        "_scenario": "lease_rights",
+        "resRegisterEntriesList": [{
+          "resRealty": "서울특별시 강남구 테스트로 7 임차빌 제5층 제507호",
+          "resRegistrationHisList": [
+            {"resType": "표제부", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "서울특별시 강남구 테스트로 7 철근콘크리트구조 5층 다세대주택 연면적 1,050.3㎡ 2014년 6월 27일 신축"},
+              {"resNumber": "2", "resContents": "전유부분의 건물의 표시 제5층 제507호 철근콘크리트구조 전용면적 84.9㎡"}
+            ]}]},
+            {"resType": "갑구", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "1 소유권이전 2019년3월2일 제70001호 원인 매매 소유자 가상임차 830707-******* 서울특별시 강남구 가상로 7"}
+            ]}]},
+            {"resType": "을구", "resContentsList": [{"resDetailList": [
+              {"resNumber": "1", "resContents": "1 전세권설정 2023년4월1일 제70002호 전세금 금100,000,000원 전세권자 가상선순위"},
+              {"resNumber": "2", "resContents": "2 임차권등기명령 2025년2월1일 제70003호 임차보증금 금80,000,000원 임차권자 가상임차인"}
+            ]}]}
+          ]
+        }]
+      },
+      "building": {
+        "_scenario": "lease_rights",
+        "resDocNo": "SYNTH-LEASE-RIGHTS",
+        "resUserAddr": "서울특별시 강남구 테스트로 7",
+        "resDetailList": [
+          {"resType": "사용승인일", "resContents": "20140627"},
+          {"resType": "연면적", "resContents": "1050.3"},
+          {"resType": "전용면적", "resContents": "84.9"}
+        ],
+        "resBuildingStatusList": [{"resFloor": "5층", "resStructure": "철근콘크리트구조", "resUseType": "다세대주택", "resArea": "210.06"}],
+        "resOwnerList": [{"resOwner": "가상*차", "resIdentityNo": "830707-1******", "resOwnershipStake": "1/1", "resChangeDate": "20190302", "resChangeReason": "매매"}],
+        "resViolationStatus": "해당없음"
+      }
+    }
+  }
+}

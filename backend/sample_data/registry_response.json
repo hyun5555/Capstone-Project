@@ -1,0 +1,82 @@
+{
+  "result": {
+    "code": "CF-00000",
+    "message": "성공"
+  },
+  "data": {
+    "_note": "SYNTHETIC SAMPLE: 실제 등기부가 아닙니다. 필드 구조 시험/데모용 가상 데이터입니다.",
+    "resRegisterEntriesList": [
+      {
+        "resRealty": "서울특별시 강남구 테스트로 100 테스트빌 제5층 제501호",
+        "resRegistrationHisList": [
+          {
+            "resType": "표제부",
+            "resContentsList": [
+              {
+                "resType": "1동의 건물의 표시",
+                "resDetailList": [
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 강남구 테스트로 100 철근콘크리트구조 5층 다세대주택 연면적 1,050.3㎡ 2014년 6월 27일 신축"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "전유부분의 건물의 표시 제5층 제501호 철근콘크리트구조 전용면적 84.9㎡"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "resType": "갑구",
+            "resContentsList": [
+              {
+                "resType": "소유권에 관한 사항",
+                "resDetailList": [
+                  {
+                    "resNumber": "1",
+                    "resContents": "1 소유권보존 2014년6월30일 제12345호 소유자 김테스트 900101-******* 서울특별시 강남구 가상동 1"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2 소유권이전 2019년3월2일 제23456호 원인 매매 소유자 이임대 800101-******* 서울특별시 서초구 가상로 2"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3 가압류 2021년5월1일 제34567호 청구금액 금30,000,000원 채권자 가상채권자"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "4 3번가압류등기말소 2022년1월5일 제1111호 해제"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "resType": "을구",
+            "resContentsList": [
+              {
+                "resType": "소유권 이외의 권리에 관한 사항",
+                "resDetailList": [
+                  {
+                    "resNumber": "1",
+                    "resContents": "1 근저당권설정 2019년3월3일 제23457호 채권최고액 금120,000,000원 채무자 이임대 근저당권자 주식회사가상은행"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2 근저당권설정 2020년7월1일 제45678호 채권최고액 금60,000,000원 채무자 이임대 근저당권자 가상신협"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3 1번근저당권설정등기말소 2021년2월2일 제2222호 해지"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
