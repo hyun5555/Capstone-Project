@@ -1,13 +1,12 @@
 # backend/app/clients/registry_api.py
 import httpx
 from fastapi import HTTPException
-from app.config import CODEF_API_HOST
+from app.config import CODEF_API_HOST, CODEF_PHONE_NO, CODEF_USER_PW
 from app.clients.codef_auth import get_second_codef_token
 from app.utils.codef_rsa import encrypt_codef_password
 from app.utils.registry_parser import extract_fields_from_rescontents
 import urllib.parse
 import json
-import os
 
 CODEF_REGISTRY_URL = f"{CODEF_API_HOST}/v1/kr/public/real-estate/register"
 
@@ -17,14 +16,14 @@ async def get_registry_info(body: dict) -> dict:
     # 사용자 입력 정보
     organization = body.get("organization", "0004")
     realEstateName = body.get("realEstateName")
-    raw_pw = os.getenv("CODEF_USER_PW")
+    raw_pw = CODEF_USER_PW
 
     if not raw_pw:
         raise HTTPException(status_code=500, detail="CODEF 비밀번호 환경변수가 설정되지 않았습니다.")
 
     request_body = {
         "organization": organization,
-        "phoneNo": os.getenv("CODEF_PHONE_NO"),  # 전화번호 반드시 포함
+        "phoneNo": CODEF_PHONE_NO,  # 전화번호 반드시 포함
         "password": encrypt_codef_password(raw_pw.strip()),
         "inquiryType": "3",  # 예: 도로명 주소로 조회
         "addr_sido": realEstateName.split()[0],   # 시/도

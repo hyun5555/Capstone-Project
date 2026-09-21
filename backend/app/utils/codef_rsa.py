@@ -1,12 +1,9 @@
 # backend/app/utils/codef_rsa.py
 
-import os
 import base64
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
-from dotenv import load_dotenv
-
-load_dotenv()
+from app.config import CODEF_PUBLIC_KEY
 
 def encrypt_codef_password(password: str) -> str:
     """
@@ -16,7 +13,7 @@ def encrypt_codef_password(password: str) -> str:
     if not password:
         raise ValueError("CODEF_USER_PW 환경변수가 비어 있습니다.")
 
-    public_key_env = os.getenv("CODEF_PUBLIC_KEY")
+    public_key_env = CODEF_PUBLIC_KEY
     if not public_key_env:
         raise ValueError("CODEF_PUBLIC_KEY 환경변수가 비어 있습니다.")
 

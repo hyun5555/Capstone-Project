@@ -1,10 +1,15 @@
 # backend/app/clients/jeonse_price_api.py
 
-import os
 import httpx
 from typing import List, Union
 from fastapi import HTTPException
-from dotenv import load_dotenv
+from app.config import (
+  APT_TRADE_PRICE_URL,
+  OFFI_TRADE_PRICE_URL,
+  RH_TRADE_PRICE_URL,
+  SERVICE_KEY,
+  SH_TRADE_PRICE_URL,
+)
 from app.schemas.trade_price import (
   AptTradePrice,
   OffiTradePrice,
@@ -13,15 +18,6 @@ from app.schemas.trade_price import (
 )
 import logging
 import xmltodict
-
-# 환경 변수 로드
-load_dotenv()
-
-APT_TRADE_PRICE_URL = os.getenv("APT_TRADE_PRICE_URL")
-OFFI_TRADE_PRICE_URL = os.getenv("OFFI_TRADE_PRICE_URL")
-RH_TRADE_PRICE_URL = os.getenv("RH_TRADE_PRICE_URL")
-SH_TRADE_PRICE_URL = os.getenv("SH_TRADE_PRICE_URL")
-SERVICE_KEY = os.getenv("SERVICE_KEY")
 
 # 로거 설정
 logger = logging.getLogger(__name__)

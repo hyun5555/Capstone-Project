@@ -4,15 +4,11 @@
 
 import httpx
 from fastapi import HTTPException
-from app.config import CODEF_API_HOST
+from app.config import CODEF_API_HOST, CODEF_USER_ID, CODEF_USER_PW
 from app.clients.codef_auth import get_second_codef_token
 from app.utils.codef_rsa import encrypt_codef_password
 import urllib.parse
 import json
-import os
-
-from dotenv import load_dotenv
-load_dotenv()
 
 CODEF_BUILDING_URL = f"{CODEF_API_HOST}/v1/kr/public/mw/building-register/general"
 
@@ -24,8 +20,8 @@ async def get_building_title_info(body: dict) -> dict:
     sub_no = body.get("subAddressNo")
     type_ = body.get("type")
 
-    raw_id = os.getenv("CODEF_USER_ID")
-    raw_pw = os.getenv("CODEF_USER_PW")
+    raw_id = CODEF_USER_ID
+    raw_pw = CODEF_USER_PW
 
     request_body = {
         "organization": "0001",

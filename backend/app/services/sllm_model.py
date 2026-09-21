@@ -1,39 +1,22 @@
 # app/services/sllm_model.py
-import os
-import sys
 import re
 import json
-from pathlib import Path
 from typing import Dict
 
-from dotenv import load_dotenv
-
+from app.config import OPENAI_API_KEY
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 
 
-# ── 1) 환경 설정
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-env_path = BASE_DIR / ".env"
-
-if not env_path.is_file():
-    raise FileNotFoundError(f".env 파일이 없습니다: {env_path}")
-
-load_dotenv(env_path)
-
-if str(BASE_DIR) not in sys.path:
-    sys.path.append(str(BASE_DIR))
-
-
-# ── 2) OpenAI API 키 로딩
-api_key = os.getenv("OPENAI_API_KEY")
+# ── 1) OpenAI API 키 로딩
+api_key = OPENAI_API_KEY
 
 if not api_key:
     raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다")
 
 
-# ── 3) LangChain LLM 설정
+# ── 2) LangChain LLM 설정
 compare_llm = ChatOpenAI(
     model="gpt-4",
     temperature=0,

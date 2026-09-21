@@ -1,28 +1,21 @@
 # app/services/external_api.py
-import os
 import requests
-from dotenv import load_dotenv
-
-from app.clients.jeonse_price_api import SERVICE_KEY
-
-load_dotenv()
-
-REGISTRY_API_URL = os.getenv("REGISTRY_API_URL")
-BUILDING_API_URL = os.getenv("BUILDING_API_URL")
-APT_JEONSE_PRICE_URL = os.getenv("APT_JEONSE_PRICE_URL")
-OFFI_JEONSE_PRICE_URL = os.getenv("OFFI_JEONSE_PRICE_URL")
-RH_JEONSE_PRICE_URL = os.getenv("RH_JEONSE_PRICE_URL")
-SH_JEONSE_PRICE_URL = os.getenv("SH_JEONSE_PRICE_URL")
-
-APT_TRADE_PRICE_URL = os.getenv("APT_TRADE_PRICE_URL")
-OFFI_TRADE_PRICE_URL = os.getenv("OFFI_TRADE_PRICE_URL")
-RH_TRADE_PRICE_URL = os.getenv("RH_TRADE_PRICE_URL")
-SH_TRADE_PRICE_URL = os.getenv("SH_TRADE_PRICE_URL")
-JUSO_API_URL = os.getenv("JUSO_API_URL")
-
-API_KEY = os.getenv("API_KEY")
-SERVICE_KEY = os.getenv("SERVICE_KEY")
-CONFM_KEY = os.getenv("CONFM_KEY")
+from app.config import (
+    API_KEY,
+    APT_JEONSE_PRICE_URL,
+    APT_TRADE_PRICE_URL,
+    BUILDING_API_URL,
+    CONFM_KEY,
+    JUSO_API_URL,
+    OFFI_JEONSE_PRICE_URL,
+    OFFI_TRADE_PRICE_URL,
+    REGISTRY_API_URL,
+    RH_JEONSE_PRICE_URL,
+    RH_TRADE_PRICE_URL,
+    SERVICE_KEY,
+    SH_JEONSE_PRICE_URL,
+    SH_TRADE_PRICE_URL,
+)
 
 def fetch_registry_data(query_params: dict) -> dict:
     """등기부등본 API 호출"""

@@ -1,14 +1,7 @@
 # backend/app/clients/address_api.py
 
-import os
-
 import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-JUSO_API_URL = os.getenv("JUSO_API_URL")
-CONFM_KEY = os.getenv("CONFM_KEY")
+from app.config import CONFM_KEY, JUSO_API_URL
 
 async def fetch_juso_data(keyword: str, current_page: int, count_per_page: int) -> dict:
   params = {

@@ -1,15 +1,8 @@
 # backend/app/services/auth.py
-import os
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
 import jwt
-from dotenv import load_dotenv
-
-load_dotenv()  # .env 파일 로드
-
-SECRET_KEY = os.getenv("SECRET_KEY", "your_jwt_secret")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 
 # Bcrypt 해싱 컨텍스트 생성
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

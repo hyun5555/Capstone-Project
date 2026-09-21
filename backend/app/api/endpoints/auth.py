@@ -2,7 +2,6 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional
 
@@ -19,8 +18,6 @@ class SignupEmailRequest(BaseModel):
 class LoginEmailRequest(BaseModel):
     email: str
     password: str
-
-load_dotenv()
 
 router = APIRouter()
 

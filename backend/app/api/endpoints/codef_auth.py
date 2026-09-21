@@ -2,8 +2,8 @@
 
 import httpx
 import base64
-import os
 from fastapi import APIRouter, HTTPException, Body
+from app.config import CODEF_CLIENT_ID, CODEF_CLIENT_SECRET
 from app.utils.codef_rsa import encrypt_codef_password
 from app.schemas.codef import ConnectedIdRequest
 
@@ -11,9 +11,7 @@ router = APIRouter(prefix="/codef", tags=["CODEF 인증"])
 
 # ✅ 내부 유틸 함수
 async def get_codef_token():
-    client_id = os.getenv("CODEF_CLIENT_ID")
-    client_secret = os.getenv("CODEF_CLIENT_SECRET")
-    return await _get_token_from_codef(client_id, client_secret)
+    return await _get_token_from_codef(CODEF_CLIENT_ID, CODEF_CLIENT_SECRET)
 
 async def _get_token_from_codef(client_id: str, client_secret: str):
     basic_token = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
