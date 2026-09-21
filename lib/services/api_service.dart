@@ -5,9 +5,12 @@ import 'package:http/http.dart' as http;
 
 
 class ApiService {
-  // 안드로이드 에뮬레이터: 10.0.2.2, iOS 시뮬레이터: localhost
-  static const String _baseUrl = "http://113.198.66.75:10010";
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
 
+  static Uri endpoint(String path) => Uri.parse('$baseUrl$path');
 
   /// 이메일 회원가입
   static Future<Map<String, dynamic>> signUpEmail({
@@ -16,7 +19,7 @@ class ApiService {
     required String password,
     required String phone,  // ✅ phone 파라미터 추가
   }) async {
-    final uri = Uri.parse("$_baseUrl/auth/signup/email");
+    final uri = endpoint('/auth/signup/email');
     final resp = await http.post(
       uri,
       headers: {"Content-Type": "application/json"},
@@ -42,7 +45,7 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    final uri = Uri.parse("$_baseUrl/auth/login/email");
+    final uri = endpoint('/auth/login/email');
     final resp = await http.post(
       uri,
       headers: {"Content-Type": "application/json"},
@@ -63,7 +66,7 @@ class ApiService {
 
   //  챗봇 메시지 요청 함수
   static Future<String> fetchChatbotAnswer(String userMessage, {String source = "input"}) async {
-    final url = Uri.parse("$_baseUrl/chatbot/chat");
+    final url = endpoint('/chatbot/chat');
     final response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},
@@ -86,7 +89,9 @@ class ApiService {
 
   // 로그인된 유저의 email 기반으로 정보 조회
   static Future<Map<String, dynamic>> getUserByEmail(String email, String token) async {
-    final uri = Uri.parse("$_baseUrl/users/by-email?email=$email"); // 👈 여기서 맞춰줌
+    final uri = endpoint('/users/by-email').replace(
+      queryParameters: {'email': email},
+    );
     final resp = await http.get(
       uri,
       headers: {"Authorization": "Bearer $token"},
@@ -111,7 +116,7 @@ class ApiService {
     String? password,
     String? phone,
   }) async {
-    final uri = Uri.parse("$_baseUrl/users/$userId");
+    final uri = endpoint('/users/$userId');
 
     // 전송할 필드만 포함
     final Map<String, dynamic> body = {};
@@ -144,7 +149,7 @@ class ApiService {
     required int deposit,
     required int marketPrice,
   }) async {
-    final url = Uri.parse("$_baseUrl/analyze/");
+    final url = endpoint('/analyze/');
     final response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},

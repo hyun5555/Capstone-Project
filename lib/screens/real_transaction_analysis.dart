@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http; // 상단에 추가
+import 'package:capstone_project/services/api_service.dart';
 
 
 class RealTransactionAnalysisPage extends StatefulWidget {
@@ -37,7 +38,7 @@ class _RealTransactionAnalysisPageState extends State<RealTransactionAnalysisPag
 
     try {
       final analysis_response = await http.post(
-        Uri.parse('http://113.198.66.75:10010/transaction/summary'),
+        ApiService.endpoint('/transaction/summary'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'address': location,
@@ -51,7 +52,7 @@ class _RealTransactionAnalysisPageState extends State<RealTransactionAnalysisPag
         print('실거래가 분석 결과: $result');
 
       final rentRateResponse = await http.post(
-        Uri.parse('http://113.198.66.75:10010/rent-rate'),
+        ApiService.endpoint('/rent-rate'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'address': location,

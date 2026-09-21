@@ -41,7 +41,7 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
       return;
     }
 
-    final buildingUrl = Uri.parse('http://10.0.2.2:8000/building/title-info');
+    final buildingUrl = ApiService.endpoint('/building/title-info');
     final requestBody = {
       'fullAddress': selectedAddressData!['fullAddress'],
       'roadName': selectedAddressData!['roadName'],
