@@ -8,14 +8,12 @@
 등기부 / 건축물대장 JSON
   → 청크 나누기 (chunking)
   → ChromaDB 저장 (OpenAI 임베딩)
-  → CaseChunkRetriever (항목별 검색, Document 반환)          [app/services/lc_retriever.py, evidence.py]
+  → CaseChunkRetriever (7개 항목 질의를 문서 필터별 2회로 묶어 검색, Document 반환) [app/services/lc_retriever.py, evidence.py]
   → build_targets / build_payload (항목, 판정, 값, 청크에 별칭 E1.. 부여)   [rag_explain.py]
   → 설명 체인                                                  [explain_chain.py]
        ChatPromptTemplate(system + few-shot + human)
-       → ChatOpenAI
-       → JsonOutputParser
-       → 검증 (normalize_explanations)
-       → with_retry (형식이 어긋날 때만)
+       → ChatOpenAI.with_structured_output(Pydantic, json_schema, strict=True)
+       → 검증·정리 (normalize_explanations)
   → rag_explain 이 별칭을 다시 검증한다
   → output_guard 가 숫자와 권리를 규칙으로 검사한다 (근거에 없는 숫자, 없는 권리, 빠뜨린 권리)
   → 하나라도 실패하면 서버가 만든 기본 문장으로 대체
@@ -46,7 +44,7 @@
 
 ### 2.3 출력 형식
 
-`{"items": [{"field", "explanation", "evidence_ids"}]}` 형태의 JSON 하나만 출력하게 합니다. 항목명을 키로 쓰는 v1 형식은 항목명에 특수문자가 들어가거나 하나가 빠졌을 때 어디가 잘못됐는지 알기 어려웠습니다. 배열 형식은 검증하기 쉽고, 모델이 `field` 값을 요청 목록에서 그대로 베끼게 만듭니다.
+`ExplanationResponse(items: list[ExplanationItem])` Pydantic 스키마를 `method="json_schema", strict=True`로 API에 전달합니다. 자유 JSON을 받은 뒤 파싱하는 방식과 달리 모델 응답 단계에서 `field`, `explanation`, `evidence_ids`를 강제하므로 형식 오류 재호출을 없앴습니다. 항목명을 키로 쓰는 v1 형식은 비교 기준선으로만 남겼습니다.
 
 ### 2.4 예시 (few-shot)
 
@@ -59,7 +57,7 @@
 | 버전 | 구성 | 목적 |
 | --- | --- | --- |
 | v1 | 사람 메시지 하나에 규칙과 자료를 함께 넣고 JSON 을 파싱만 함. 검증과 재시도 없음 | 비교 기준선 |
-| v2 | 역할과 조건은 system, 예시는 few-shot, 자료는 human 으로 분리. 스키마 검증과 재시도 있음 | 개선안 (기본값) |
+| v2 | 역할과 조건은 system, 예시는 few-shot, 자료는 human 으로 분리. Pydantic Structured Outputs로 스키마 강제 | 개선안 (기본값) |
 
 `EXPLAIN_PROMPT_VERSION=v1` 로 되돌릴 수 있습니다. v2 는 입력 토큰이 더 많으므로(예시와 조건 때문), 품질 향상이 비용 증가를 정당화하는지는 5절의 평가로 확인해야 합니다.
 
@@ -69,18 +67,19 @@
 
 1. 입력 `{payload, fields}`: rag_explain 이 만든 자료 텍스트와 요청 항목명 목록.
 2. `RunnableParallel(parsed=..., inputs=RunnablePassthrough())`: 생성 결과와 원래 입력을 함께 다음 단계로 넘깁니다. 검증 단계가 "어떤 항목을 요청했는지"를 알아야 하기 때문입니다.
-3. `ChatPromptTemplate | ChatOpenAI | JsonOutputParser`: 메시지를 만들고, 모델을 호출하고, JSON 으로 파싱합니다.
-4. `RunnableLambda(normalize_explanations)`: 요청하지 않은 항목, 빈 설명, 형식이 다른 별칭을 버립니다. 쓸 수 있는 항목이 하나도 없으면 `OutputParserException` 을 냅니다.
-5. `.with_retry(OutputParserException 만, 최대 2회)`: 형식이 어긋났을 때만 다시 호출합니다. 네트워크 오류는 `ChatOpenAI(max_retries=2)` 가 따로 처리하므로 두 재시도가 겹치지 않습니다.
-6. rag_explain 의 인용 검증: LLM 이 인용한 별칭이 그 항목에 실제로 준 청크인지 확인하고, 아니면 버립니다.
-7. 서버 검사 (`output_guard.py`, LangChain 밖의 순수 규칙): 프롬프트로 "지어내지 마세요"라고 부탁하는 것만으로는 막을 수 없으므로 서버가 다시 확인합니다.
+3. `ChatPromptTemplate | ChatOpenAI.with_structured_output(...)`: 메시지를 만들고 Pydantic 스키마를 강제해 모델을 한 번 호출합니다.
+4. `RunnableLambda(normalize_explanations)`: 요청하지 않은 항목과 형식이 다른 근거 별칭을 제거합니다. 일부 항목이 빠지면 그 항목만 기본 문장으로 채우며 전체를 재호출하지 않습니다.
+5. rag_explain 의 인용 검증: LLM 이 인용한 별칭이 그 항목에 실제로 준 청크인지 확인하고, 아니면 버립니다.
+6. 서버 검사 (`output_guard.py`, LangChain 밖의 순수 규칙): 프롬프트로 "지어내지 마세요"라고 부탁하는 것만으로는 막을 수 없으므로 서버가 다시 확인합니다.
    - 설명의 숫자(금액, 연도, 면적)가 그 항목의 값과 근거 청크에 없으면 버립니다. `2억 4천만원`처럼 한글 단위로 쓴 금액도 원 단위로 바꿔 비교합니다.
    - 권리사항 설명이 문서에 없는 권리를 있다고 하거나, 현재 유효한 권리를 빠뜨리거나, 유효한 권리를 말소됐다고 하면 버립니다.
    - 버려진 항목은 서버가 만든 기본 문장(정확하지만 딱딱함)으로 대체하고, 응답의 `guard` 에 사유를 남깁니다. 틀린 설명이 나가는 것보다 기본 문장이 안전합니다.
    - 평가(`evaluation.metrics`)도 같은 함수를 씁니다. 서비스가 거르는 기준과 평가 기준이 같습니다.
-8. 호출이 실패하거나 응답이 비면 기본 문장으로 대체합니다. 분석은 멈추지 않습니다.
+7. 호출이 실패하거나 응답이 비면 기본 문장으로 대체합니다. 분석은 멈추지 않습니다.
 
 일부 항목만 빠진 경우는 예외로 보지 않습니다. 빠진 항목만 기본 문장으로 채우는 편이 전체를 다시 호출하는 것보다 싸고 안전합니다.
+
+분석 API의 독립 작업도 두 단계로 병렬 실행합니다. 첫 단계는 문서 비교, 근거 검색, 시세 조회를 함께 시작하고, 두 번째 단계는 그 결과로 LLM 설명과 위험 점수를 함께 계산합니다. 각 단계 내부에는 의존 관계가 없고 단계 사이에만 의존 관계가 있으므로 결과를 바꾸지 않으면서 외부 API 대기시간을 겹칩니다.
 
 ## 4. 컴포넌트별 사용 여부와 이유
 
@@ -90,10 +89,10 @@
 | 리트리버 (BaseRetriever 상속 CaseChunkRetriever) | 사용 | 항목별로 청크를 찾는 자리. LangChain 표준 인터페이스라 검색 전략(plain, balanced)을 바꿔도 뒤 단계는 그대로임. 결과는 `Document` (본문과 메타데이터) |
 | 문서 (Document) | 사용 | 청크 본문에 doc_type, section, rank_no, chunk_id, distance 를 메타데이터로 붙여 인용과 평가에 씀 |
 | 벡터스토어 (ChromaDB) | 사용, 직접 연결 | 기존 `chunk_store.py` 의 ChromaDB 를 그대로 두고 리트리버가 감쌈. LangChain 의 벡터스토어 래퍼를 쓰지 않은 것은 사건(case) 단위 삭제, 문서 종류 필터, cosine 거리 설정을 이미 직접 관리하기 때문 |
-| 아웃풋 파서 (JsonOutputParser) | 사용 | LLM 문자열을 JSON 으로 바꾸는 자리. 코드블록으로 감싸 나온 경우도 처리. 그 뒤에 스키마 검증 단계를 붙임 |
-| 러너블 (Parallel, Passthrough, Lambda, with_retry) | 사용 | 생성, 검증, 재시도를 하나의 체인으로 이음. 검증 실패를 자동 재시도로 연결 |
+| 구조화 출력 (Pydantic + with_structured_output) | 사용 | v2 응답 스키마를 OpenAI JSON Schema로 강제해 자유 JSON 파싱과 형식 오류 재호출을 제거. v1 비교선에만 JsonOutputParser 유지 |
+| 러너블 (Parallel, Passthrough, Lambda) | 사용 | 생성 결과와 원 입력을 함께 넘겨 요청 항목만 정리하고, 일부 누락은 항목별 기본 문장으로 대체 |
 | 콜백 (BaseCallbackHandler, UsageRecorder) | 사용 | 호출 수, 토큰, 지연시간을 코드 수정 없이 수집. 평가와 비용 계산에 씀 |
-| 메모리 | 사용 안 함 | 한 번 분석하고 끝나는 단발성 작업이라 이전 대화가 없음. 이전 출력을 넣으면 오히려 판정 고정 원칙이 흐려짐. 챗봇 기능이 생기면 그때 도입 |
+| 메모리 | 분석에는 사용 안 함 | 문서 분석은 단발성이다. 챗봇은 전체 대화 대신 현재 계약 단계만 명시적으로 전송해 토큰과 잘못된 문맥 누적을 줄임 |
 | 툴, 에이전트 | 사용 안 함 | 점수와 판정을 서버가 결정론적으로 계산해야 하고, 검색도 서버가 미리 해서 넘김. 에이전트가 검색이나 계산을 스스로 고르면 같은 입력에 다른 결과가 나오고 비용 예측이 어려움 |
 
 ## 5. 성능 평가 (6단계)
@@ -147,7 +146,7 @@ python -m evaluation --phase prompt --repeat 3 \
 
 1. 검색 재현율이 낮으면: 청크 크기와 Top-K, 전략(balanced)부터 조정합니다. 검색이 놓친 근거는 프롬프트로 고칠 수 없습니다.
 2. 환각 지표(phantom, cancelled as active, 근거 없는 숫자)가 남으면: 조건 문구와 few-shot 예시를 보강합니다.
-3. 형식 오류로 재시도가 잦으면: JSON 모드(`--json-mode`)나 재시도 횟수를 검토합니다.
+3. 구조화 출력 오류가 발생하면: 모델의 Structured Outputs 지원 여부와 Pydantic 스키마를 확인합니다. 형식 오류 재호출은 하지 않습니다.
 4. v2 가 v1 보다 정확도가 낮거나 비슷한데 토큰만 늘면: `EXPLAIN_PROMPT_VERSION=v1` 로 되돌리고 조건을 줄입니다.
 
 ### 5.6 실제 임베딩으로 잰 검색 결과와 적용한 개선
@@ -172,6 +171,27 @@ python -m evaluation --phase prompt --repeat 3 \
 - balanced 는 실제 임베딩에서 효과가 작았습니다(K=3 에서 76% 대 77%). 개선의 핵심은 전략이 아니라 항목별 K 였습니다.
 - 준공년도는 K=5 에서도 11/14 라서 남은 약점입니다. 검색 질의 문구를 청크 문장에 가깝게 다듬는 것이 다음 후보입니다.
 
+### 5.7 호출 수와 출력시간 개선 결과 (2026-09-21)
+
+동일한 7개 합성 시나리오, 청크 크기 600, adaptive 전략으로 개선 전후를 한 번씩 실측했습니다.
+
+| 항목 | 개선 전 | 개선 후 | 변화 |
+| --- | ---: | ---: | ---: |
+| 항목별 벡터 검색 호출 | 7회 | 2회 | 71% 감소 |
+| 검색 p50 | 1,202ms | 359ms | 70.1% 감소 |
+| 검색 p95 | 1,750ms | 495ms | 71.7% 감소 |
+| 근거 적중률 | 95% | 95% | 유지 |
+| 항목 완전 충족 | 91% | 91% | 유지 |
+| 권리 근거 재현율 | 100% | 100% | 유지 |
+
+일반 비교 항목 6개는 한 번, 등기부 전용 권리사항은 한 번 검색합니다. 각 검색 요청 안에서는 OpenAI 임베딩의 배열 입력을 사용하고, 결과를 다시 항목별 adaptive K로 자릅니다. 같은 `case_id`가 이미 ChromaDB에 있으면 청킹과 `upsert`를 건너뛰며, 테스트에서 같은 문서 2회 분석 시 `upsert`가 1회만 호출되는 것을 확인합니다.
+
+실제 `gpt-5.6-luna`로 안전/과다근저당 2건을 실행한 결과 JSON 호출 성공, 항목 응답, 판정 일관성, 권리 재현, 인용 유효가 모두 100%였고 서버 검사 탈락은 0%였습니다. 같은 안전 문서를 분석 API로 연속 실행했을 때 전체 지연은 8.73초에서 5.42초로 줄었습니다. LLM 응답시간 자체의 변동도 섞인 1회 측정이므로 이 수치는 방향 확인용이며, 검색 p50/p95가 호출 묶기의 직접 효과를 보여 주는 핵심 지표입니다.
+
+### 5.8 Structured Outputs 실호출 결과 (2026-09-22)
+
+새 API 키와 `gpt-5.6-luna`, `reasoning_effort=none`으로 안전 시나리오를 실행했습니다. Pydantic 스키마를 만족한 응답을 재호출 없이 1회에 받았고, 호출 성공·항목 응답·인용 유효·인용 적중·판정 일관성이 모두 100%, 서버 검사 탈락과 근거 밖 숫자는 0%였습니다. 입력 3,522토큰, 출력 311토큰, LLM 지연은 4.32초였습니다. 단일 표본이므로 절대 성능 결론이 아니라 Structured Outputs 경로의 실동작 확인값입니다.
+
 ## 6. 설정 값 (환경 변수)
 
 | 이름 | 기본값 | 뜻 |
@@ -181,10 +201,11 @@ python -m evaluation --phase prompt --repeat 3 \
 | EXPLAIN_PROMPT_VERSION | v2 | 설명 프롬프트 버전 (v1 또는 v2) |
 | LLM_TEMPERATURE | 1 | 이 모델은 1 만 허용 |
 | LLM_MODEL | gpt-5.6-luna | 설명을 만드는 모델 |
+| LLM_REASONING_EFFORT | none | 설명·챗봇 지연을 줄이기 위한 reasoning 강도. 실측에서 low보다 빨라 none을 기본값으로 선택 |
 
 ## 7. 알려진 한계
 
-- 로컬 가상환경은 langchain-core 0.3.x 이고 requirements.txt 는 0.1.x 로 고정돼 있어 둘이 다릅니다. 코드는 두 버전에 공통인 API 만 쓰고 0.1.52 에서 테스트했습니다. 0.3.x 에서는 사용자 환경의 테스트 결과로 확인이 필요합니다.
+- `requirements.txt`는 FastAPI 0.115.9, ChromaDB 1.0.9, langchain-core 0.3.86, langchain-openai 0.3.35로 맞췄습니다. Python 3.11 새 Docker 이미지에서 설치, `pip check`, 전체 157개 테스트를 통과했습니다.
 - 평가는 합성 시나리오 7개 기준입니다. 문서 하나당 청크가 4개 안팎이라 K=5 는 전체의 절반이 넘는 양을 가져오는 셈이므로, K 가 클수록 좋아 보이는 경향이 실제보다 과장됐을 수 있습니다. 실제 등기부와 건축물대장(CODEF)으로 다시 재야 일반화할 수 있습니다.
-- 서버 검사는 휴리스틱입니다. 예를 들어 권리가 없는데 "근저당 채권최고액 0원"이라고 쓰는 식으로 말한 설명도 지어낸 권리로 판단해 기본 문장으로 대체합니다. 이런 오탐은 정확한 기본 문장을 쓰게 될 뿐이므로 안전한 쪽으로 틀리지만, 탈락률이 높게 나오면 설명 원문을 보고 규칙을 다듬어야 합니다.
+- 서버 검사는 휴리스틱입니다. 권리가 없을 때 권리 이름이나 0원 금액을 쓰지 않도록 프롬프트에서 제한했지만, 모델이 이를 어기면 안전한 기본 문장으로 대체됩니다. 탈락률이 높아지면 설명 원문을 보고 프롬프트와 규칙을 함께 다듬어야 합니다.
 - 항목별 K 는 위 검색 결과에서 정한 값이라, 문서 형식이 바뀌면 다시 재서 조정해야 합니다.

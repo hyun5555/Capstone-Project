@@ -50,9 +50,10 @@ class RealEnvironment:
 
     def make_llm_call(self, config: Config, callbacks: List):
         from app.services.explain_chain import get_llm, make_llm_call
-        if config.json_mode not in self._llms:
-            self._llms[config.json_mode] = get_llm(config.json_mode)
-        return make_llm_call(config.prompt_version, llm=self._llms[config.json_mode], callbacks=callbacks)
+        json_mode = config.json_mode and config.prompt_version == "v1"
+        if json_mode not in self._llms:
+            self._llms[json_mode] = get_llm(json_mode)
+        return make_llm_call(config.prompt_version, llm=self._llms[json_mode], callbacks=callbacks)
 
     def environment(self) -> Environment:
         return Environment(self.make_store, self.make_llm_call, dry_run=False)

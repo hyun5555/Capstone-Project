@@ -39,11 +39,6 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
-
 # FastAPI backend 관련 무시 항목
 /backend/venv/
 /backend/__pycache__/

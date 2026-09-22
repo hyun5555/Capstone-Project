@@ -61,7 +61,10 @@ class _ChatPageState extends State<Chat> {
     _controller.clear();
     _scrollToBottom();
 
-    final response = await ApiService.fetchChatbotAnswer(question);
+    final response = await ApiService.fetchChatbotAnswer(
+      question,
+      stage: selectedCategory,
+    );
     if (!mounted) return;
     setState(() {
       chatList.insert(0, {

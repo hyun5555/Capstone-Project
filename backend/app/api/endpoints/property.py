@@ -1,26 +1,24 @@
 # backend/app/api/endpoints/properties.py
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from typing import List, Optional
-from pydantic import BaseModel
+import hashlib
 
-from app.db.session import SessionLocal
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
+from typing import List, Optional
+
+from app.db.session import get_db
 from app.models.property import Property
 from app.clients.building_api import get_building_title_info
 from app.clients.registry_api import get_registry_info
+from app.clients.codef_client import CodefError, http_status_for
+from app.services.codef_normalizer import normalize_building_response, normalize_registry_response
 from app.services.vector_db import upsert_property_docs
+from app.utils.masking import mask_person_name
 
 # 라우터 생성
 router = APIRouter(prefix="/property", tags=["Property"])
-
-# DB 세션 의존성
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # Pydantic 모델
 class PropertyCreate(BaseModel):
@@ -37,96 +35,92 @@ class PropertyUpdate(BaseModel):
     risk_summary: Optional[str] = None
 
 class PropertyOut(PropertyCreate):
-    property_id: int
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        form_attributes = True
+    property_id: int
 
 # CRUD Endpoints
 @router.post("/", response_model=PropertyOut)
-def create_property(property: PropertyCreate, db: Session = Depends(get_db)):
-    new_property = Property(**property.dict())
+async def create_property(property: PropertyCreate, db: AsyncSession = Depends(get_db)):
+    new_property = Property(**property.model_dump())
     db.add(new_property)
-    db.commit()
-    db.refresh(new_property)
+    await db.commit()
+    await db.refresh(new_property)
     return new_property
 
 @router.get("/", response_model=List[PropertyOut])
-def read_properties(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return db.query(Property).offset(skip).limit(limit).all()
+async def read_properties(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Property).offset(skip).limit(limit))
+    return list(result.scalars().all())
 
 @router.get("/{property_id}", response_model=PropertyOut)
-def read_property(property_id: int, db: Session = Depends(get_db)):
-    prop = db.query(Property).filter(Property.property_id == property_id).first()
+async def read_property(property_id: int, db: AsyncSession = Depends(get_db)):
+    prop = await db.get(Property, property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     return prop
 
 @router.put("/{property_id}", response_model=PropertyOut)
-def update_property(property_id: int, prop_update: PropertyUpdate, db: Session = Depends(get_db)):
-    prop = db.query(Property).filter(Property.property_id == property_id).first()
+async def update_property(property_id: int, prop_update: PropertyUpdate, db: AsyncSession = Depends(get_db)):
+    prop = await db.get(Property, property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
-    for key, value in prop_update.dict(exclude_unset=True).items():
+    for key, value in prop_update.model_dump(exclude_unset=True).items():
         setattr(prop, key, value)
-    db.commit()
-    db.refresh(prop)
+    await db.commit()
+    await db.refresh(prop)
     return prop
+
+@router.delete("/{property_id}")
+async def delete_property(property_id: int, db: AsyncSession = Depends(get_db)):
+    prop = await db.get(Property, property_id)
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    await db.delete(prop)
+    await db.commit()
+    return {"detail": "Property deleted"}
 
 # Ingest Endpoint: 외부 API 호출 및 VectorDB 저장
 @router.post(
     "/ingest",
-    summary="지번 입력 → 건축물대장·등기부조회 → VectorDB 저장"
+    summary="주소 입력 → 건축물대장·등기부조회 → VectorDB 저장"
 )
 async def ingest_property(
-    plat_gb_cd: str = Query(..., description="지번 구분 코드, ex: '0'"),
-    bun: str = Query(..., description="지번 본번, ex: '123'"),
-    ji: str = Query(..., description="지번 부번, ex: '45'")
+    address: str = Query(..., description="전체 주소"),
+    road_name: str = Query(..., description="도로명"),
+    main_address_no: str = Query(..., description="본번"),
+    sub_address_no: str = Query("0", description="부번"),
 ):
-    # 1) 건축물대장 조회
-    real_estate_unique_number = f"{plat_gb_cd.zfill(10)}{bun.zfill(4)}{ji.zfill(4)}"
     try:
-        building_item = await get_building_title_info(real_estate_unique_number)
+        building_item = await get_building_title_info(road_name, main_address_no, sub_address_no)
+        registry_data = await get_registry_info(address)
         if not isinstance(building_item, dict):
             raise HTTPException(status_code=502, detail="건축물대장 응답 형식 오류")
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"건축물대장 조회 실패: {e}")
-    building_items = [building_item]  # 기존 로직과 호환을 위해 리스트로 래핑
+    except CodefError as e:
+        raise HTTPException(status_code=http_status_for(e), detail=e.message)
 
-    # 2) 등기부등본 조회
-    jibun = f"{bun}-{ji}"
-    registry_data = await fetch_registry(jibun)
-
-    # 3) VectorDB에 저장할 문서 리스트 생성
-    docs = []
-    for idx, item in enumerate(building_items):
-        summary_text = (
-            f"건축물명: {item.get('bldNm')}, "
-            f"용도: {item.get('mainPurps')}, "
-            f"면적: {item.get('purpsArea')}"
-        )
-        docs.append({
-            "id": f"building_{plat_gb_cd}_{bun}_{ji}_{idx}",
-            "text": summary_text,
-            "metadata": {"source": "building", "platGbCd": plat_gb_cd, "bun": bun, "ji": ji, **item}
-        })
-
-    # 등기부등본 요약
-    summary_text = (
-        f"소유자: {registry_data.get('ownerName')}, "
-        f"등기일: {registry_data.get('regDate')}, "
-        f"물건형태: {registry_data.get('propertyKind')}"
-    )
-    docs.append({
-        "id": f"registry_{jibun}",
-        "text": summary_text,
-        "metadata": {"source": "registry", **registry_data}
-    })
+    building = normalize_building_response(building_item, address)
+    registry = normalize_registry_response(registry_data, address)
+    case_id = hashlib.sha256(address.encode("utf-8")).hexdigest()[:16]
+    owners = ", ".join(mask_person_name(name) for name in registry.owner_names) or "확인 불가"
+    rights = ", ".join(sorted({right.type for right in registry.active_rights})) or "없음"
+    docs = [
+        {
+            "id": f"building-{case_id}",
+            "text": f"건축물대장 주소: {address}, 용도: {building.usage}, 구조: {building.structure}, 연면적: {building.area_total}",
+            "metadata": {"source": "building", "address": address},
+        },
+        {
+            "id": f"registry-{case_id}",
+            "text": f"등기부 주소: {address}, 소유자: {owners}, 유효 권리: {rights}, 채권최고액: {registry.max_claim_amount}",
+            "metadata": {"source": "registry", "address": address},
+        },
+    ]
 
     # 4) VectorDB Upsert
     try:
-        upsert_property_docs(docs)
+        await run_in_threadpool(upsert_property_docs, docs)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"VectorDB upsert 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"VectorDB upsert 실패: {type(e).__name__}")
 
     return {"message": "VectorDB에 저장 완료", "ingested": len(docs), "ids": [d["id"] for d in docs]}

@@ -19,7 +19,7 @@ async def address_search(
 ):
   try:
     response = await fetch_juso_data(keyword, current_page, count_per_page)
-    juso_list = response.get("results", {}).get("juso", [])
+    juso_list = response.get("results", {}).get("juso") or []
     return juso_list
   except Exception as e:
     raise HTTPException(status_code=500, detail=str(e))

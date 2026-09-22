@@ -1,4 +1,5 @@
-# app/api/endpoints/analyze.py
+import asyncio
+
 from fastapi import APIRouter, HTTPException
 from starlette.concurrency import run_in_threadpool
 
@@ -81,18 +82,19 @@ async def analyze_property(data: AnalyzeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
     reg, bld = docs.registry, docs.building
-    comparison = await run_in_threadpool(_compare, reg, bld)
-    findings = build_findings(reg, bld, comparison)
-    case_id, evidence, evidence_note = await run_in_threadpool(_collect_evidence, reg, bld)
-    explained = await run_in_threadpool(explain_with_evidence, comparison, evidence, findings)
-
-    # 시세: 사용자 입력 → 같은 동 최근 매매 실거래가 중앙값 → 판단불가(None). 임의의 값으로 채우지 않는다.
-    market = await resolve_market_price(
-        data.address, bld.usage or reg.usage, bld.area_exclusive or reg.area_exclusive, data.marketPrice
+    comparison, evidence_result, market = await asyncio.gather(
+        run_in_threadpool(_compare, reg, bld),
+        run_in_threadpool(_collect_evidence, reg, bld),
+        resolve_market_price(
+            data.address, bld.usage or reg.usage, bld.area_exclusive or reg.area_exclusive, data.marketPrice
+        ),
     )
-    # check_defaulter 가 외부 사이트를 호출(블로킹)하므로 스레드에서 계산한다.
-    risk = await run_in_threadpool(
-        calculate_risk_score, findings, {"보증금": data.deposit, "시세": market.value_won}
+    findings = build_findings(reg, bld, comparison)
+    case_id, evidence, evidence_note = evidence_result
+    # LLM 설명과 위험 점수는 서로 독립적이다. check_defaulter 는 블로킹 호출이라 둘 다 스레드에서 실행한다.
+    explained, risk = await asyncio.gather(
+        run_in_threadpool(explain_with_evidence, comparison, evidence, findings),
+        run_in_threadpool(calculate_risk_score, findings, {"보증금": data.deposit, "시세": market.value_won}),
     )
 
     risk_items = [

@@ -43,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--chunk-size", type=int, default=None, help="prompt phase 에서 고정할 청크 크기 (기본: 설정값)")
     p.add_argument("--top-k", type=int, default=None, help="prompt phase 에서 고정할 Top-K (기본: 설정값)")
     p.add_argument("--strategy", default=None, help="prompt phase 에서 고정할 검색 전략 (기본: 설정값)")
-    p.add_argument("--json-mode", action="store_true", help="OpenAI JSON 모드(response_format=json_object)로 호출")
+    p.add_argument("--json-mode", action="store_true", help="v1만 OpenAI JSON 모드로 호출(v2는 Structured Outputs 고정)")
     p.add_argument("--input-price", type=float, default=None, help="LLM 입력 가격 (100만 토큰당). 모르면 비워 둔다")
     p.add_argument("--output-price", type=float, default=None, help="LLM 출력 가격 (100만 토큰당). 모르면 비워 둔다")
     p.add_argument("--embedding-price", type=float, default=0.02, help="임베딩 가격 (100만 토큰당, 기본 text-embedding-3-small 공시가)")
@@ -76,8 +76,7 @@ def main(argv=None) -> int:
 
     llm_configs = [c for c in configs if c.prompt_version]
     est_calls = len(llm_configs) * len(scenarios) * args.repeat
-    print(f"시나리오 {len(scenarios)}개, 설정 {len(configs)}개, 예상 LLM 호출 {est_calls}회"
-          f"{' (형식 검증 실패 시 재시도로 최대 2배)' if est_calls else ''}", flush=True)
+    print(f"시나리오 {len(scenarios)}개, 설정 {len(configs)}개, 예상 LLM 호출 {est_calls}회", flush=True)
     if est_calls and not args.dry_run and not args.yes:
         try:
             if input("실제 OpenAI API 를 호출합니다. 계속할까요? (y/N) ").strip().lower() != "y":

@@ -15,4 +15,7 @@ class JusoItem(BaseModel):
   emdNm: str                     # 읍면동명
   lnbrMnnm: str                  # 지번본번(번지)
   lnbrSlno: str                  # 지번부번(호)
-
+  roadName: str                  # 도로명
+  bcode: str                     # 법정동코드
+  mainAddressNo: str             # 건물 본번
+  subAddressNo: str              # 건물 부번

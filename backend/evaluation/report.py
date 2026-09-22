@@ -84,7 +84,7 @@ def render(meta: dict, pipeline: List[dict], aggregates: List[dict], records: Li
              for a in llm],
         ))
         out.append("\n## 4. 지연, 토큰, 비용 (분석 1건 기준)")
-        out.append("총 지연은 청킹과 임베딩 저장, 근거 검색, LLM 호출을 합한 값입니다. 호출 수가 1보다 크면 형식 검증 실패로 재시도한 것입니다.\n")
+        out.append("총 지연은 청킹과 임베딩 저장, 근거 검색, LLM 호출을 합한 값입니다. v2는 Structured Outputs로 형식을 강제하므로 형식 오류 재호출을 하지 않습니다.\n")
         out.append(_table(
             ["설정", "LLM 호출 수", "입력 토큰", "출력 토큰", "LLM p50/p95 (s)", "총 p50/p95 (s)", f"LLM 비용/건 ({unit})",
              f"임베딩 비용/건 ({unit})"],

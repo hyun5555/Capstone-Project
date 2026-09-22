@@ -1,4 +1,5 @@
 import logging
+from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from starlette.concurrency import run_in_threadpool
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class ChatRequest(BaseModel):
     message: str
+    stage: Optional[Literal["계약 전", "계약 중", "계약 후"]] = None
 
 @router.post("/chat")
 async def chatbot_response(req: ChatRequest):
@@ -20,7 +22,7 @@ async def chatbot_response(req: ChatRequest):
         raise HTTPException(status_code=422, detail="질문은 1,000자 이하로 입력해 주세요.")
 
     try:
-        return await run_in_threadpool(answer_legal_question, query)
+        return await run_in_threadpool(answer_legal_question, query, stage=req.stage)
     except Exception as exc:
         logger.warning("법률 RAG 답변 실패: %s", type(exc).__name__)
         return {

@@ -31,11 +31,11 @@ class _MyPageState extends State<MyPage> {
     final token = prefs.getString("token") ?? "";
 
     if (storedEmail.isEmpty || token.isEmpty) {
-      print("❌ 저장된 이메일 또는 토큰이 없습니다.");
       return;
     }
 
     final result = await ApiService.getUserByEmail(storedEmail, token);
+    if (!mounted) return;
     if (result["success"] == true) {
       final data = result["data"];
       setState(() {
@@ -44,8 +44,6 @@ class _MyPageState extends State<MyPage> {
         phoneNumber = data["phone"] ?? "";
         email = data["email"] ?? "";
       });
-    } else {
-      print("❌ 사용자 정보 로드 실패: ${result["message"]}");
     }
   }
 

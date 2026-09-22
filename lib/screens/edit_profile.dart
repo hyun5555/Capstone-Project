@@ -35,11 +35,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
     token = prefs.getString('token') ?? '';
 
     if (storedEmail.isEmpty || token.isEmpty) {
-      print('❌ 저장된 이메일 또는 토큰이 없습니다.');
       return;
     }
 
     final result = await ApiService.getUserByEmail(storedEmail, token);
+    if (!mounted) return;
 
     if (result['success'] == true) {
       final data = result['data'];
@@ -48,8 +48,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         emailController.text = data['email'] ?? '';
         phoneController.text = data['phone'] ?? '';
       });
-    } else {
-      print('❌ 사용자 정보 로딩 실패: ${result['message']}');
     }
   }
 
@@ -172,6 +170,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     password: password.isNotEmpty ? password : null,
                     phone: phone,
                   );
+                  if (!context.mounted) return;
 
                   if (result['success'] == true) {
                     ScaffoldMessenger.of(context).showSnackBar(

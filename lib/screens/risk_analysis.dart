@@ -23,6 +23,8 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
 
   bool isDurationUnknown = false;
   bool isDetailAddressUnknown = false;
+  bool _isPreparing = false;
+  bool _isAnalyzing = false;
 
   Map<String, dynamic>? selectedAddressData;
 
@@ -36,6 +38,7 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
   }
 
   Future<void> sendAddressAndPrice() async {
+    if (_isPreparing || _isAnalyzing) return;
     if (selectedAddressData == null) {
       ScaffoldMessenger.of(
         context,
@@ -43,6 +46,7 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
       return;
     }
 
+    setState(() => _isPreparing = true);
     final buildingUrl = ApiService.endpoint('/building/title-info');
     final requestBody = {
       'fullAddress': selectedAddressData!['fullAddress'],
@@ -53,189 +57,112 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
       'price': int.tryParse(priceController.text.replaceAll(',', '')) ?? 0,
     };
 
+    Map<String, dynamic>? buildingData;
     try {
       final buildingResp = await http.post(
         buildingUrl,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
+      if (!mounted) return;
 
-      if (buildingResp.statusCode == 200) {
-        final buildingData = jsonDecode(utf8.decode(buildingResp.bodyBytes));
-
-        showDialog(
-          context: context,
-          builder:
-              (_) => AlertDialog(
-                title: const Text("건축물 표제부 상세정보"),
-                content: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("문서번호: ${buildingData['resDocNo'] ?? '없음'}"),
-                      Text(
-                        "주소: ${(buildingData['resUserAddr'] ?? '없음').toString().replaceAll('+', ' ')}",
-                      ),
-                      Text("발급일자: ${buildingData['resIssueDate'] ?? '없음'}"),
-                      const SizedBox(height: 12),
-                      const Text(
-                        "▶ 상세정보",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      if (buildingData['resDetailList'] != null)
-                        ...List<Widget>.from(
-                          (buildingData['resDetailList'] as List).map(
-                            (item) => Text(
-                              "${item['resType']}: ${item['resContents'].toString().replaceAll('+', ' ')}",
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        "▶ 층별현황",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      if (buildingData['resBuildingStatusList'] != null)
-                        ...List<Widget>.from(
-                          (buildingData['resBuildingStatusList'] as List).map(
-                            (item) => Text(
-                              "${item['resFloor']}: ${item['resUseType']} (${item['resArea']}㎡)",
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        "▶ 소유자 정보",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      if (buildingData['resOwnerList'] != null)
-                        ...List<Widget>.from(
-                          (buildingData['resOwnerList'] as List).map(
-                            (item) => Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("소유자: ${item['resOwner']}"),
-                                Text(
-                                  "주소: ${item['resUserAddr'].toString().replaceAll('+', ' ')}",
-                                ),
-                                Text("지분: ${item['resOwnershipStake']}"),
-                                const SizedBox(height: 6),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    child: const Text("확인"),
-                    onPressed: () async {
-                      Navigator.pop(context); // 다이얼로그 닫기
-
-                      final deposit =
-                          int.tryParse(
-                            priceController.text.replaceAll(',', ''),
-                          ) ??
-                          0;
-
-                      try {
-                        final analysisResp = await ApiService.analyzeJeonseRisk(
-                          address: selectedAddressData!['fullAddress'],
-                          deposit: deposit,
-                          roadName: selectedAddressData!['roadName'],
-                          mainAddressNo: selectedAddressData!['mainAddressNo'],
-                          subAddressNo:
-                              selectedAddressData!['subAddressNo'] ?? '0',
-                        );
-
-                        print("✅ API 응답: $analysisResp");
-
-                        if (analysisResp['success']) {
-                          final resultData = analysisResp['data'];
-                          print("✅ resultData: $resultData");
-
-                          // ⚠️ 중첩된 'data' 안에 실제 정보 존재
-                          final innerData = resultData['data'];
-
-                          print("✅ risk_score: ${innerData['risk_score']}");
-                          print("✅ risk_items: ${innerData['risk_items']}");
-
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => RiskResultPage(
-                                    address:
-                                        selectedAddressData!['fullAddress'],
-                                    deposit: deposit,
-                                    marketPrice:
-                                        (innerData['market_price'] is Map &&
-                                                innerData['market_price']['value_won']
-                                                    is num)
-                                            ? (innerData['market_price']['value_won']
-                                                    as num)
-                                                .toInt()
-                                            : null,
-                                    // 서버 점수는 이미 0~100 이다 (높을수록 위험)
-                                    riskScore:
-                                        (innerData['risk_score'] is num)
-                                            ? (innerData['risk_score'] as num)
-                                                .round()
-                                            : 0,
-                                    notices:
-                                        (innerData['notes'] is List)
-                                            ? (innerData['notes'] as List)
-                                                .map((e) => e.toString())
-                                                .toList()
-                                            : const [],
-                                    riskItems:
-                                        (innerData['risk_items'] is List)
-                                            ? (innerData['risk_items'] as List)
-                                                .map(
-                                                  (item) =>
-                                                      Map<String, dynamic>.from(
-                                                        item,
-                                                      ),
-                                                )
-                                                .toList()
-                                            : [],
-                                  ),
-                            ),
-                          );
-                        } else {
-                          print("❌ 분석 실패: ${analysisResp['message']}");
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                "위험도 분석 실패: ${analysisResp['message']}",
-                              ),
-                            ),
-                          );
-                        }
-                      } catch (e, stack) {
-                        print("❌ 예외 발생: $e");
-                        print("📌 Stack: $stack");
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("분석 중 오류 발생: $e")),
-                        );
-                      }
-                    },
-                  ),
-                ],
-              ),
-        );
-      } else {
-        print("❌ 서버 오류 (건축물): ${buildingResp.statusCode}");
+      if (buildingResp.statusCode != 200) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("건축물 정보 조회 실패")));
+        ).showSnackBar(const SnackBar(content: Text("건축물 정보 조회 실패")));
+        return;
       }
+
+      final decoded = jsonDecode(utf8.decode(buildingResp.bodyBytes));
+      if (decoded is! Map) throw const FormatException();
+      buildingData = Map<String, dynamic>.from(decoded);
     } catch (e) {
-      print("❌ 통신 오류: $e");
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("통신 오류: $e")));
+    } finally {
+      if (mounted) setState(() => _isPreparing = false);
+    }
+
+    if (buildingData == null || !mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _BuildingInfoDialog(data: buildingData!),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isAnalyzing = true);
+    await _runRiskAnalysis();
+  }
+
+  Future<void> _runRiskAnalysis() async {
+    final deposit = int.tryParse(priceController.text.replaceAll(',', '')) ?? 0;
+
+    try {
+      final analysisResp = await ApiService.analyzeJeonseRisk(
+        address: selectedAddressData!['fullAddress'],
+        deposit: deposit,
+        roadName: selectedAddressData!['roadName'],
+        mainAddressNo: selectedAddressData!['mainAddressNo'],
+        subAddressNo: selectedAddressData!['subAddressNo'] ?? '0',
+      );
+      if (!mounted) return;
+
+      final resultData = analysisResp['data'];
+      final innerData = resultData is Map ? resultData['data'] : null;
+      if (analysisResp['success'] != true || innerData is! Map) {
+        setState(() => _isAnalyzing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "위험도 분석 실패: ${analysisResp['message'] ?? '응답 형식 오류'}",
+            ),
+          ),
+        );
+        return;
+      }
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => RiskResultPage(
+                address: selectedAddressData!['fullAddress'],
+                deposit: deposit,
+                marketPrice:
+                    (innerData['market_price'] is Map &&
+                            innerData['market_price']['value_won'] is num)
+                        ? (innerData['market_price']['value_won'] as num)
+                            .toInt()
+                        : null,
+                riskScore:
+                    (innerData['risk_score'] is num)
+                        ? (innerData['risk_score'] as num).round()
+                        : 0,
+                notices:
+                    (innerData['notes'] is List)
+                        ? (innerData['notes'] as List)
+                            .map((e) => e.toString())
+                            .toList()
+                        : const [],
+                riskItems:
+                    (innerData['risk_items'] is List)
+                        ? (innerData['risk_items'] as List)
+                            .map((item) => Map<String, dynamic>.from(item))
+                            .toList()
+                        : const [],
+              ),
+        ),
+      );
+      if (mounted) setState(() => _isAnalyzing = false);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isAnalyzing = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("분석 중 오류 발생: $e")));
     }
   }
 
@@ -245,6 +172,8 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isAnalyzing) return const _AnalysisLoadingScreen();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -413,9 +342,16 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
               width: double.infinity,
               height: 54,
               child: ElevatedButton.icon(
-                onPressed: _onAnalyzePressed,
-                icon: const Icon(Icons.analytics_outlined),
-                label: const Text('전세 위험도 분석하기'),
+                onPressed: _isPreparing ? null : _onAnalyzePressed,
+                icon:
+                    _isPreparing
+                        ? const SizedBox(
+                          width: 19,
+                          height: 19,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.analytics_outlined),
+                label: Text(_isPreparing ? '건축물 정보 확인 중' : '전세 위험도 분석하기'),
               ),
             ),
           ],
@@ -532,6 +468,292 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
                   Icons.chevron_right_rounded,
                   color: AppColors.muted,
                 ),
+      ),
+    );
+  }
+}
+
+class _BuildingInfoDialog extends StatelessWidget {
+  const _BuildingInfoDialog({required this.data});
+
+  final Map<String, dynamic> data;
+
+  String _text(String key, [String fallback = '확인 불가']) {
+    final value = data[key]?.toString().replaceAll('+', ' ').trim();
+    return value == null || value.isEmpty ? fallback : value;
+  }
+
+  List<Map<String, dynamic>> _items(String key) {
+    final value = data[key];
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final details = _items('resDetailList');
+    final floors = _items('resBuildingStatusList');
+    final owners = _items('resOwnerList');
+
+    return AlertDialog(
+      scrollable: true,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 30),
+      icon: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: AppColors.softBlue,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(
+          Icons.apartment_rounded,
+          color: AppColors.primary,
+          size: 28,
+        ),
+      ),
+      title: const Text(
+        '건축물 정보 확인',
+        style: TextStyle(fontWeight: FontWeight.w800),
+      ),
+      content: SizedBox(
+        width: 430,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              '분석에 사용할 공공문서 정보입니다.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: AppColors.softBlue,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  _DocumentInfoRow(label: '문서번호', value: _text('resDocNo')),
+                  const SizedBox(height: 10),
+                  _DocumentInfoRow(label: '주소', value: _text('resUserAddr')),
+                  const SizedBox(height: 10),
+                  _DocumentInfoRow(label: '발급일자', value: _text('resIssueDate')),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _DocumentSection(
+              icon: Icons.description_outlined,
+              title: '상세 정보',
+              count: details.length,
+              children:
+                  details
+                      .map(
+                        (item) => _sectionText(
+                          '${item['resType'] ?? '항목'} · ${item['resContents'] ?? '확인 불가'}',
+                        ),
+                      )
+                      .toList(),
+            ),
+            const SizedBox(height: 8),
+            _DocumentSection(
+              icon: Icons.layers_outlined,
+              title: '층별 현황',
+              count: floors.length,
+              children:
+                  floors
+                      .map(
+                        (item) => _sectionText(
+                          '${item['resFloor'] ?? '-'} · ${item['resUseType'] ?? '용도 확인 불가'}'
+                          '${item['resArea'] == null ? '' : ' · ${item['resArea']}㎡'}',
+                        ),
+                      )
+                      .toList(),
+            ),
+            const SizedBox(height: 8),
+            _DocumentSection(
+              icon: Icons.person_outline_rounded,
+              title: '소유자 정보',
+              count: owners.length,
+              children:
+                  owners
+                      .map(
+                        (item) => _sectionText(
+                          '${item['resOwner'] ?? '소유자 확인 불가'} · 지분 ${item['resOwnershipStake'] ?? '확인 불가'}\n'
+                          '${item['resUserAddr']?.toString().replaceAll('+', ' ') ?? ''}',
+                        ),
+                      )
+                      .toList(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('닫기'),
+        ),
+        FilledButton.icon(
+          onPressed: () => Navigator.pop(context, true),
+          icon: const Icon(Icons.analytics_outlined, size: 19),
+          label: const Text('확인 및 분석 시작'),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionText(String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(text, style: const TextStyle(height: 1.45)),
+      ),
+    );
+  }
+}
+
+class _DocumentInfoRow extends StatelessWidget {
+  const _DocumentInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 66,
+          child: Text(
+            label,
+            style: const TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w700, height: 1.35),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DocumentSection extends StatelessWidget {
+  const _DocumentSection({
+    required this.icon,
+    required this.title,
+    required this.count,
+    required this.children,
+  });
+
+  final IconData icon;
+  final String title;
+  final int count;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: ExpansionTile(
+        shape: const Border(),
+        collapsedShape: const Border(),
+        leading: Icon(icon, color: AppColors.primary),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(count == 0 ? '정보 없음' : '$count개 항목'),
+        children:
+            children.isEmpty
+                ? const [
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 14),
+                    child: Text(
+                      '확인된 정보가 없습니다.',
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                  ),
+                ]
+                : children,
+      ),
+    );
+  }
+}
+
+class _AnalysisLoadingScreen extends StatelessWidget {
+  const _AnalysisLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 112,
+                    height: 112,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const SizedBox.expand(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 7,
+                            color: AppColors.primary,
+                            backgroundColor: AppColors.softBlue,
+                          ),
+                        ),
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: const BoxDecoration(
+                            color: AppColors.softBlue,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.shield_outlined,
+                            color: AppColors.primary,
+                            size: 35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  const Text(
+                    '전세 위험도 분석 중...',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '등기부와 건축물 정보를 비교하고 있어요.\n리포트가 완성되면 자동으로 이동합니다.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 14,
+                      height: 1.55,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

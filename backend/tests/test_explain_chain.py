@@ -112,6 +112,19 @@ class RetrieverTest(unittest.TestCase):
         # top_k 인자는 표에 없는 항목에만 쓰이므로, 바꿔도 결과가 같다
         self.assertEqual(adaptive, retrieve_evidence(self.store, self.case_id, 1, "adaptive"))
 
+    def test_retrieval_batches_queries_by_document_filter(self):
+        class CountingStore:
+            def __init__(self, inner):
+                self.inner, self.search_calls = inner, 0
+
+            def search(self, *args, **kwargs):
+                self.search_calls += 1
+                return self.inner.search(*args, **kwargs)
+
+        store = CountingStore(self.store)
+        retrieve_evidence(store, self.case_id, 3, "adaptive")
+        self.assertEqual(store.search_calls, 2)
+
 
 @unittest.skipUnless(HAS_LANGCHAIN, "langchain-core 가 필요합니다")
 class ExplainChainTest(unittest.TestCase):
@@ -158,23 +171,18 @@ class ExplainChainTest(unittest.TestCase):
             with self.assertRaises(OutputParserException):
                 normalize_explanations(bad, ["소유자명"])
 
-    def test_v2_recovers_from_one_malformed_answer_with_retry(self):
+    def test_v2_uses_strict_structured_output_without_format_retry(self):
+        from langchain_core.exceptions import OutputParserException
         from evaluation.fakes import FakeChatModel
         from app.services.llm_usage import UsageRecorder
         rec = UsageRecorder()
-        result = self.call("v2", FakeChatModel(fail_first=1), callbacks=[rec])
+        result = self.call("v2", FakeChatModel(), callbacks=[rec])
         self.assertEqual(set(result), {"소유자명", "권리사항"})
         self.assertEqual(result["소유자명"]["evidence_ids"], ["E1", "E2"])
-        self.assertEqual(rec.summary()["calls"], 2)                            # 첫 호출 실패 + 재시도
-
-    def test_v2_gives_up_after_max_attempts(self):
-        from langchain_core.exceptions import OutputParserException
-        from evaluation.fakes import FakeChatModel
-        with self.assertRaises(OutputParserException):
-            self.call("v2", FakeChatModel(fail_first=2))
+        self.assertEqual(rec.summary()["calls"], 1)
         llm = FakeChatModel(fail_first=1)
         with self.assertRaises(OutputParserException):
-            self.call("v2", llm, max_attempts=1)
+            self.call("v2", llm)
         self.assertEqual(llm.calls_made, 1)
 
     def test_v1_is_the_plain_baseline_without_retry_or_validation(self):

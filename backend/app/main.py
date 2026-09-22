@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.endpoints import auth, property, users, building, registry, vector, \
-    analyze, chatbot, jeonse_price, address, trade_price, transaction_summary, jeonse_rate, codef_auth, risk_score
+    analyze, chatbot, jeonse_price, address, trade_price, transaction_summary, jeonse_rate, codef_auth
 from app.db.session import engine, Base  # init_db 대신 engine, Base를 가져옵니다
 
 app = FastAPI()
@@ -31,13 +31,12 @@ async def on_startup():
 
 # 라우터 등록
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(property.router, prefix="/property", tags=["property"])
+app.include_router(property.router)
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(building.router)
 app.include_router(registry.router)
 app.include_router(vector.router)
 app.include_router(analyze.router, prefix="/analyze", tags=["Analyze"])
-#clude_router(prediction.router, prefix="/prediction", tags=["prediction"])
 app.include_router(chatbot.router, prefix="/chatbot", tags=["chatbot"])
 app.include_router(jeonse_price.router)
 app.include_router(trade_price.router)
@@ -45,4 +44,3 @@ app.include_router(address.router)
 app.include_router(transaction_summary.router, tags=["Transaction Summary"])
 app.include_router(jeonse_rate.router, tags=["Rent Rate"])
 app.include_router(codef_auth.router)   # 라우터 자체에 /codef prefix 가 있다
-#app.include_router(risk_score.router, tags=["Risk Score"])

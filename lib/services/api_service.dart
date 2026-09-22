@@ -74,13 +74,17 @@ class ApiService {
 
   //  챗봇 메시지 요청 함수
   static Future<Map<String, dynamic>> fetchChatbotAnswer(
-    String userMessage,
-  ) async {
+    String userMessage, {
+    String? stage,
+  }) async {
     try {
       final response = await http.post(
         endpoint('/chatbot/chat'),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"message": userMessage}),
+        body: jsonEncode({
+          "message": userMessage,
+          if (stage != null) "stage": stage,
+        }),
       );
       final data = _jsonObject(response);
       if (response.statusCode == 200) {

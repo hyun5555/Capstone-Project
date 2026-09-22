@@ -10,6 +10,8 @@ from typing import Any, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.runnables import RunnableLambda
 
 
 _BLOCK = re.compile(r"^\[항목\] ([^\n]+)\n판정: ([^\n]+)\n값: ([^\n]+)\n근거 청크:\n((?:(?!\n\n\[항목\]).)*)", re.MULTILINE | re.DOTALL)
@@ -50,3 +52,7 @@ class FakeChatModel(BaseChatModel):
                 text = json.dumps({i["field"]: {"explanation": i["explanation"], "evidence_ids": i["evidence_ids"]} for i in items}, ensure_ascii=False)
         usage = {"prompt_tokens": max(1, len(prompt_text) // 2), "completion_tokens": max(1, len(text) // 2)}
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=text))], llm_output={"token_usage": usage})
+
+    def with_structured_output(self, schema, **kwargs):
+        """실제 모델의 Structured Outputs를 dry-run에서만 JSON 파서로 흉내 낸다."""
+        return self | JsonOutputParser() | RunnableLambda(lambda value: schema(**value))

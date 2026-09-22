@@ -157,6 +157,9 @@ RETRIEVAL_STRATEGY = (_env("RETRIEVAL_STRATEGY", "adaptive") or "adaptive").lowe
 
 # 근거 기반 설명(LLM) 설정. 프롬프트 버전은 v1(초기 단순 프롬프트) / v2(역할·조건·예시·검증 강화)
 EXPLAIN_PROMPT_VERSION = (_env("EXPLAIN_PROMPT_VERSION", "v2") or "v2").lower()
+LLM_REASONING_EFFORT = (_env("LLM_REASONING_EFFORT", "none") or "none").lower()
+if LLM_REASONING_EFFORT not in {"none", "low", "medium", "high", "xhigh"}:
+    raise ValueError(f"LLM_REASONING_EFFORT 값이 올바르지 않습니다: {LLM_REASONING_EFFORT!r}")
 try:
     LLM_TEMPERATURE = float(_env("LLM_TEMPERATURE", "1"))     # 현재 모델은 1 만 허용한다 (기존 설정 유지)
 except ValueError:

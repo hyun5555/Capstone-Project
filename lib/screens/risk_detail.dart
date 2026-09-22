@@ -50,7 +50,7 @@ class RiskDetailPage extends StatelessWidget {
             LinearProgressIndicator(
               value: score / 100,
               minHeight: 12,
-              backgroundColor: themeColor.withOpacity(0.2),
+              backgroundColor: themeColor.withValues(alpha: 0.2),
               valueColor: AlwaysStoppedAnimation<Color>(themeColor),
               borderRadius: BorderRadius.circular(10),
             ),

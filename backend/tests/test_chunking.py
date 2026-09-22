@@ -230,6 +230,22 @@ class EvidenceTest(unittest.TestCase):
         self.assertEqual(again, case_id)
         self.assertEqual(store.count(case_id), n)
 
+    def test_same_documents_are_not_upserted_again(self):
+        class CountingStore(ChunkStore):
+            def __init__(self, collection):
+                super().__init__(collection)
+                self.upsert_calls = 0
+
+            def upsert(self, chunks):
+                self.upsert_calls += 1
+                return super().upsert(chunks)
+
+        reg, bld = docs()
+        store = CountingStore(FakeCollection())
+        collect_evidence(store, reg, bld, 600, 100, top_k=3)
+        collect_evidence(store, reg, bld, 600, 100, top_k=3)
+        self.assertEqual(store.upsert_calls, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

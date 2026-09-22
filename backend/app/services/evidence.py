@@ -25,7 +25,8 @@ FIELD_QUERIES = {
 def index_documents(store, registry: PropertyDoc, building: PropertyDoc, size: int, overlap: int) -> str:
     """두 문서를 청킹해서 저장하고 case_id 를 돌려준다. 같은 내용을 다시 넣어도 중복 저장되지 않는다."""
     case_id = case_id_for(registry, building)
-    store.upsert(chunk_document(registry, case_id, size, overlap) + chunk_document(building, case_id, size, overlap))
+    if store.count(case_id) == 0:
+        store.upsert(chunk_document(registry, case_id, size, overlap) + chunk_document(building, case_id, size, overlap))
     return case_id
 
 
@@ -45,7 +46,8 @@ FIELD_TOP_K = {"전용면적": 1, "소유자명": 2, "구조 유형": 2, "권리
 def retrieve_evidence(store, case_id: str, top_k: int, strategy: str = "plain") -> dict:
     """
     {항목: [{chunk_id, doc_type, section, rank_no, text, distance}, ...]}
-    LangChain 리트리버(CaseChunkRetriever)로 항목별 질의를 차례로 실행한다. (ChromaDB 호출은 스레드 안전하지 않아 병렬로 돌리지 않는다)
+    LangChain 리트리버(CaseChunkRetriever)로 같은 문서 필터의 질의를 묶어 실행한다.
+    현재는 일반 비교 항목 6개와 등기부 전용 권리사항을 나눠 총 2번 검색한다.
     strategy: "plain"(가까운 순 Top-K) | "balanced"(두 문서 청크를 각각 하나 이상 포함)
               | "adaptive"(balanced 에 항목별 Top-K(FIELD_TOP_K)를 적용. top_k 는 표에 없는 항목에만 쓴다)
     """
@@ -53,16 +55,19 @@ def retrieve_evidence(store, case_id: str, top_k: int, strategy: str = "plain") 
         raise ValueError(f"알 수 없는 검색 전략입니다: {strategy}")
     from app.services.lc_retriever import CaseChunkRetriever
 
-    def search(name: str):
+    names = list(FIELD_QUERIES)
+    grouped = {}
+    for name in names:
+        grouped.setdefault(FIELD_DOC_TYPE.get(name), []).append(name)
+
+    results = {}
+    for doc_type, group_names in grouped.items():
+        ks = [FIELD_TOP_K.get(name, top_k) if strategy == "adaptive" else top_k for name in group_names]
         retriever = CaseChunkRetriever(
             store=store, case_id=case_id,
-            top_k=FIELD_TOP_K.get(name, top_k) if strategy == "adaptive" else top_k,
-            doc_type=FIELD_DOC_TYPE.get(name), balanced=(strategy != "plain"),
+            top_k=max(ks), doc_type=doc_type, balanced=(strategy != "plain"),
         )
-        return retriever.invoke(FIELD_QUERIES[name])
-
-    names = list(FIELD_QUERIES)
-    results = [search(name) for name in names]
+        results.update(zip(group_names, retriever.batch([FIELD_QUERIES[name] for name in group_names], top_ks=ks)))
 
     return {
         name: [
@@ -74,9 +79,9 @@ def retrieve_evidence(store, case_id: str, top_k: int, strategy: str = "plain") 
                 "text": d.page_content,
                 "distance": d.metadata["distance"],
             }
-            for d in docs
+            for d in results[name]
         ]
-        for name, docs in zip(names, results)
+        for name in names
     }
 
 

@@ -30,8 +30,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  webview_flutter: ^4.2.2
-  flutter_inappwebview: ^6.0.0
   http: ^0.13.0 #Flutter에서 REST API와 통신하기 위해 http 패키지를 사용
   shared_preferences: ^2.2.2
 
@@ -62,28 +60,11 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/naver_logo1.png
-    - assets/kakao_logo.png
-    - assets/speaker.png
     - assets/main_search_icon.png
     - assets/main_circlechart.png
     - assets/map_icon.png
-    - assets/Chart.png
     - assets/Light_bulb.png
-    - assets/Money.png
-    - assets/Calendar.png
-    - assets/Location.png
-    - assets/home_icon.png
-    - assets/analysis_solid_icon.png
-    - assets/chart_underbar.png
-    - assets/mypage_icon.png
-    - assets/pencil_icon.png
-    - assets/Home.png
-    - assets/Money.png
     - assets/Document.png
-    - assets/ajaping_icon.png
-    - assets/html/postcode.html
-    - assets/Building.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

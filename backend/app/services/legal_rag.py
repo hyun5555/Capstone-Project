@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from langchain_core.output_parsers import StrOutputParser
@@ -14,6 +15,18 @@ from app.utils.masking import mask_text
 
 
 DISCLAIMER = "※ 일반적인 정보 제공이며, 구체적인 계약·분쟁에 대한 법률 자문이 아닙니다."
+INSUFFICIENT_ANSWER = "현재 등록된 공식 자료만으로는 근거를 확인하기 어렵습니다. 관련 공식 기관에 확인해 주세요."
+CITATION = re.compile(r"\[(\d+)\]")
+# ponytail: 가벼운 범위 판정이다. 실제 후속 질문 오탐이 측정되면 대화 문맥 기반 분류기로 교체한다.
+LEGAL_TERMS = (
+    "전세", "임대", "임차", "계약", "보증금", "등기", "집주인", "소유자", "중개", "전입",
+    "확정일자", "보증보험", "반환보증", "주택", "부동산", "계약금", "잔금", "신고", "대항력",
+    "우선변제", "특약", "근저당", "가압류", "임차권",
+)
+QUERY_HINTS = (
+    (("전입신고", "확정일자"), "주택임대차보호법 대항력 우선변제권 주택 인도 주민등록 임대차계약증서 확정일자"),
+    (("돌려받지", "미반환", "반환받지"), "임대차 종료 보증금 반환받지 못한 임차인 임차권등기명령 관할 법원"),
+)
 
 SYSTEM_PROMPT = """당신은 대한민국 전세계약 가이드 및 전세사기 예방 챗봇입니다.
 아래 원칙을 반드시 지키세요.
@@ -30,7 +43,7 @@ SYSTEM_PROMPT = """당신은 대한민국 전세계약 가이드 및 전세사�
 
 PROMPT = ChatPromptTemplate.from_messages([
     ("system", SYSTEM_PROMPT),
-    ("human", "질문:\n{question}\n\n공식 자료:\n{context}"),
+    ("human", "계약 단계:\n{stage}\n\n질문:\n{question}\n\n공식 자료:\n{context}"),
 ])
 
 
@@ -94,6 +107,7 @@ def _context_and_sources(documents) -> tuple[str, list[dict]]:
         context.append(f"[{number}] {meta['title']} ({meta['publisher']}, {meta['effective_date']})\n{doc.page_content}")
         sources.append({
             "number": number,
+            "id": meta["source_id"],
             "title": meta["title"],
             "publisher": meta["publisher"],
             "url": meta["url"],
@@ -102,14 +116,51 @@ def _context_and_sources(documents) -> tuple[str, list[dict]]:
     return "\n\n".join(context), sources
 
 
+def _insufficient_result(*, debug: dict | None = None) -> dict:
+    result = {"answer": f"{INSUFFICIENT_ANSWER}\n\n{DISCLAIMER}", "sources": [], "mode": "insufficient"}
+    if debug:
+        result["debug"] = debug
+    return result
+
+
+def _cited_sources(answer: str, sources: list[dict]) -> list[dict] | None:
+    """인용이 없거나 제공 범위를 벗어나면 None, 정상이면 실제 인용한 출처만 반환한다."""
+    cited = {int(value) for value in CITATION.findall(answer)}
+    available = {source["number"] for source in sources}
+    if not cited or not cited <= available:
+        return None
+    return [source for source in sources if source["number"] in cited]
+
+
+def _retrieve_documents(store, case_id: str, question: str, top_k: int):
+    """원 질문과 법률 용어 보강 질의를 한 번에 임베딩하고 RRF로 합친다."""
+    queries = [question]
+    queries += [f"{question} {hint}" for triggers, hint in QUERY_HINTS if any(word in question for word in triggers)]
+    retriever = CaseChunkRetriever(store=store, case_id=case_id, top_k=top_k)
+    if len(queries) == 1:
+        return retriever.invoke(question)
+    rows = retriever.batch(queries)
+    scores, documents = {}, {}
+    for query_index, row in enumerate(rows):
+        weight = 1 if query_index == 0 else 2
+        for rank, document in enumerate(row, start=1):
+            chunk_id = document.metadata["chunk_id"]
+            scores[chunk_id] = scores.get(chunk_id, 0.0) + weight / (60 + rank)
+            documents[chunk_id] = document
+    return [documents[chunk_id] for chunk_id in sorted(scores, key=scores.get, reverse=True)[:top_k]]
+
+
 def answer_legal_question(question: str, *, store=None, llm=None, corpus_path=None,
-                          chunk_size=None, chunk_overlap=None, top_k=None) -> dict:
+                          chunk_size=None, chunk_overlap=None, top_k=None, stage=None,
+                          callbacks=None, include_debug=False) -> dict:
     """LangChain 검색과 LLM 답변을 실행한다."""
     from app.config import CHUNK_OVERLAP, CHUNK_SIZE, LEGAL_CORPUS_PATH, RETRIEVAL_TOP_K
 
     question = mask_text(question.strip())
     if not question:
         raise ValueError("질문이 비어 있습니다.")
+    if not any(term in question for term in LEGAL_TERMS):
+        return _insufficient_result(debug={"retrieved_source_ids": []} if include_debug else None)
 
     if store is None:
         from app.services.vector_db import get_legal_store
@@ -120,8 +171,7 @@ def answer_legal_question(question: str, *, store=None, llm=None, corpus_path=No
         chunk_size or CHUNK_SIZE,
         CHUNK_OVERLAP if chunk_overlap is None else chunk_overlap,
     )
-    retriever = CaseChunkRetriever(store=store, case_id=case_id, top_k=top_k or RETRIEVAL_TOP_K)
-    documents = retriever.invoke(question)
+    documents = _retrieve_documents(store, case_id, question, top_k or RETRIEVAL_TOP_K)
     if not documents:
         raise RuntimeError("검색된 법률 자료가 없습니다.")
 
@@ -129,7 +179,17 @@ def answer_legal_question(question: str, *, store=None, llm=None, corpus_path=No
     if llm is None:
         from app.services.explain_chain import get_llm
         llm = get_llm()
-    answer = build_legal_chain(llm).invoke({"question": question, "context": context}).strip()
+    config = {"callbacks": list(callbacks)} if callbacks else None
+    answer = build_legal_chain(llm).invoke(
+        {"question": question, "stage": stage or "미지정", "context": context}, config=config
+    ).strip()
     if not answer:
         raise RuntimeError("LLM 답변이 비어 있습니다.")
-    return {"answer": f"{answer}\n\n{DISCLAIMER}", "sources": sources, "mode": "rag"}
+    debug = {"retrieved_source_ids": [source["id"] for source in sources]} if include_debug else None
+    cited_sources = _cited_sources(answer, sources)
+    if cited_sources is None:
+        return _insufficient_result(debug=debug)
+    result = {"answer": f"{answer}\n\n{DISCLAIMER}", "sources": cited_sources, "mode": "rag"}
+    if debug:
+        result["debug"] = debug
+    return result
