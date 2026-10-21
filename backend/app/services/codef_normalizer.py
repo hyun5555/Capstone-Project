@@ -178,6 +178,9 @@ def _extract_owner_names(entry_text: str) -> list[str]:
     names = re.findall(
         r"(?:소유자|공유자)\s+(?:지분\s*(?:\d+분의\s*\d+|[\d/]+)\s+)?([가-힣㈜()A-Za-z0-9]{2,20})", entry_text
     )
+    if not names:
+        # OCR은 '소유자홍길동800101-*******'처럼 칸을 모두 붙여 읽기도 한다.
+        names = re.findall(r"(?:소유자|공유자)\s*([가-힣]{2,6})(?=\s*\d{6}(?:[-*]|\b))", entry_text)
     out: list[str] = []
     for n in names:
         if n not in out and n not in {"및", "지분"}:

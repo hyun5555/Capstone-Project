@@ -39,6 +39,7 @@ def _public_chunk(chunk: dict) -> dict:
         "doc_type": chunk.get("doc_type"),
         "section": chunk.get("section"),
         "rank_no": chunk.get("rank_no"),
+        "page_no": chunk.get("page_no"),
         "text": chunk.get("text"),
     }
 

@@ -26,3 +26,5 @@ PublicDataReader
 python-dateutil
 webdriver-manager
 xmltodict
+PyMuPDF==1.26.5
+python-multipart==0.0.20

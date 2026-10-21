@@ -64,7 +64,11 @@ def chunk_document(doc: PropertyDoc, case_id: str, size: int, overlap: int) -> l
     label = DOC_LABEL.get(doc.doc_type, doc.doc_type)
     cancelled = {(r.section, r.rank_no) for r in doc.rights if r.cancelled}
     for si, section in enumerate(doc.sections):
-        header = f"[{label} {section.name}" + (f" 순위 {section.rank_no}" if section.rank_no else "")
+        header = f"[{label} {section.name}"
+        if section.page_no:
+            header += f" {section.page_no}페이지"
+        if section.rank_no:
+            header += f" 순위 {section.rank_no}"
         # 나중에 말소된 권리는 청크만 봐도 알 수 있게 표시한다 (LLM 이 유효한 권리로 오해하지 않도록).
         header += (" 말소됨]" if (section.name, section.rank_no) in cancelled else "]")
         body = mask_text(section.text, doc.owner_names)
@@ -79,6 +83,7 @@ def chunk_document(doc: PropertyDoc, case_id: str, size: int, overlap: int) -> l
                     "doc_type": doc.doc_type,
                     "section": section.name,
                     "rank_no": section.rank_no or "",       # Chroma 메타데이터는 None 을 허용하지 않는다
+                    "page_no": section.page_no or 0,
                     "section_index": si,
                     "chunk_index": ci,
                 },

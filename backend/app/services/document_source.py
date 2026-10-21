@@ -38,6 +38,7 @@ class LoadedDocs:
     building: PropertyDoc
     source: str                                 # "codef" | "sample"
     notes: list = field(default_factory=list)
+    processing: dict = field(default_factory=dict)
 
 
 def read_sample_response(path: Path) -> dict:
@@ -87,4 +88,30 @@ async def load_codef_documents(client, address: str, road_name: Optional[str],
         normalize_registry_response(reg_raw, address),
         normalize_building_response(bld_raw, address),
         "codef",
+    )
+
+
+def load_pdf_documents(registry_data: bytes, building_data: bytes, address: str) -> LoadedDocs:
+    """업로드한 두 PDF를 읽어 기존 분석용 PropertyDoc 두 개로 바꾼다."""
+    from app.services.pdf_extractor import extract_pdf
+    from app.services.pdf_normalizer import normalize_building_pdf, normalize_registry_pdf
+
+    registry_pdf = extract_pdf(registry_data)
+    building_pdf = extract_pdf(building_data)
+    processing = {
+        "registry": registry_pdf.processing(),
+        "building": building_pdf.processing(),
+    }
+    notes = []
+    for label, result in (("등기부등본", processing["registry"]), ("건축물대장", processing["building"])):
+        if result["ocr_pages"]:
+            pages = ", ".join(map(str, result["ocr_pages"]))
+            notes.append(f"{label} {pages}페이지는 OCR로 읽었습니다. 원본과 함께 확인하세요.")
+        notes.extend(result["warnings"])
+    return LoadedDocs(
+        normalize_registry_pdf(registry_pdf, address),
+        normalize_building_pdf(building_pdf, address),
+        "pdf",
+        notes,
+        processing,
     )

@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.clients.codef_client import CodefError, get_codef_client, http_status_for
@@ -11,11 +11,12 @@ from app.config import (
 from app.schemas.analyze import AnalyzeRequest
 from app.services.document_compare import MATCH, MISMATCH, UNKNOWN, build_findings, compare_documents, unverified_fields
 from app.services.document_source import (
-    MissingAddressParts, SampleDataMissing, load_codef_documents, load_sample_documents,
+    MissingAddressParts, SampleDataMissing, load_codef_documents, load_pdf_documents, load_sample_documents,
 )
 from app.services.chunker import case_id_for
 from app.services.evidence import collect_evidence
 from app.services.market_price import resolve_market_price
+from app.services.pdf_extractor import MAX_PDF_BYTES, PdfError
 from app.services.rag_explain import RIGHTS_FIELD, explain_with_evidence
 from app.services.risk_score import calculate_risk_score
 
@@ -65,28 +66,13 @@ def _build_notices(market, deposit, docs_notes, evidence_note):
     return notices
 
 
-@router.post("/")
-async def analyze_property(data: AnalyzeRequest):
-    try:
-        if ANALYSIS_DATA_SOURCE == "sample":
-            docs = load_sample_documents(data.address, CODEF_SAMPLE_DIR, data.scenario)
-        else:
-            docs = await load_codef_documents(
-                get_codef_client(), data.address, data.roadName, data.mainAddressNo, data.subAddressNo
-            )
-    except MissingAddressParts as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except CodefError as e:
-        raise HTTPException(status_code=http_status_for(e), detail=e.message)
-    except SampleDataMissing as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+async def _analyze_loaded_docs(docs, address: str, deposit: int, market_price: int = None):
     reg, bld = docs.registry, docs.building
     comparison, evidence_result, market = await asyncio.gather(
         run_in_threadpool(_compare, reg, bld),
         run_in_threadpool(_collect_evidence, reg, bld),
         resolve_market_price(
-            data.address, bld.usage or reg.usage, bld.area_exclusive or reg.area_exclusive, data.marketPrice
+            address, bld.usage or reg.usage, bld.area_exclusive or reg.area_exclusive, market_price
         ),
     )
     findings = build_findings(reg, bld, comparison)
@@ -94,7 +80,7 @@ async def analyze_property(data: AnalyzeRequest):
     # LLM 설명과 위험 점수는 서로 독립적이다. check_defaulter 는 블로킹 호출이라 둘 다 스레드에서 실행한다.
     explained, risk = await asyncio.gather(
         run_in_threadpool(explain_with_evidence, comparison, evidence, findings),
-        run_in_threadpool(calculate_risk_score, findings, {"보증금": data.deposit, "시세": market.value_won}),
+        run_in_threadpool(calculate_risk_score, findings, {"보증금": deposit, "시세": market.value_won}),
     )
 
     risk_items = [
@@ -113,7 +99,7 @@ async def analyze_property(data: AnalyzeRequest):
     return {
         "success": True,
         "data": {
-            "address": data.address,
+            "address": address,
             "risk_score": risk["score"],
             "risk_grade": risk["grade"],
             "risk_reasons": risk["reasons"],
@@ -126,8 +112,51 @@ async def analyze_property(data: AnalyzeRequest):
             "rights": explained[RIGHTS_FIELD],
             "unverified": unverified_fields(comparison),
             "data_source": docs.source,
-            "notes": _build_notices(market, data.deposit, docs.notes, evidence_note),
+            "document_processing": getattr(docs, "processing", {}),
+            "notes": _build_notices(market, deposit, docs.notes, evidence_note),
             "case_id": case_id,
             "evidence": evidence,
         },
     }
+
+
+@router.post("/")
+async def analyze_property(data: AnalyzeRequest):
+    try:
+        if ANALYSIS_DATA_SOURCE == "sample":
+            docs = load_sample_documents(data.address, CODEF_SAMPLE_DIR, data.scenario)
+        else:
+            docs = await load_codef_documents(
+                get_codef_client(), data.address, data.roadName, data.mainAddressNo, data.subAddressNo
+            )
+    except MissingAddressParts as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except CodefError as e:
+        raise HTTPException(status_code=http_status_for(e), detail=e.message)
+    except SampleDataMissing as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return await _analyze_loaded_docs(docs, data.address, data.deposit, data.marketPrice)
+
+
+async def _read_pdf(upload: UploadFile) -> bytes:
+    data = await upload.read(MAX_PDF_BYTES + 1)
+    await upload.close()
+    return data
+
+
+@router.post("/pdf")
+async def analyze_pdf(
+    registry_pdf: UploadFile = File(...),
+    building_pdf: UploadFile = File(...),
+    address: str = Form(...),
+    deposit: int = Form(...),
+    marketPrice: int = Form(None),
+):
+    if not address.strip():
+        raise HTTPException(status_code=422, detail="주소를 입력해 주세요.")
+    registry_data, building_data = await asyncio.gather(_read_pdf(registry_pdf), _read_pdf(building_pdf))
+    try:
+        docs = await run_in_threadpool(load_pdf_documents, registry_data, building_data, address.strip())
+    except PdfError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc))
+    return await _analyze_loaded_docs(docs, address.strip(), deposit, marketPrice)

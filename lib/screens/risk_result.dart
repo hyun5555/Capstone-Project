@@ -12,6 +12,7 @@ class RiskResultPage extends StatelessWidget {
     required this.riskScore,
     required this.riskItems,
     this.notices = const [],
+    this.documentProcessing = const {},
   });
 
   final String address;
@@ -20,6 +21,7 @@ class RiskResultPage extends StatelessWidget {
   final int riskScore;
   final List<Map<String, dynamic>> riskItems;
   final List<String> notices;
+  final Map<String, dynamic> documentProcessing;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +46,10 @@ class RiskResultPage extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _RiskScoreCard(score: riskScore, color: riskColor),
+            if (documentProcessing.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _DocumentProcessingCard(data: documentProcessing),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [
@@ -139,6 +145,18 @@ class RiskResultPage extends StatelessWidget {
                                   score: (item['score'] as num?)?.round() ?? 0,
                                   explanation:
                                       item['explanation']?.toString() ?? '',
+                                  evidence:
+                                      item['evidence'] is List
+                                          ? (item['evidence'] as List)
+                                              .whereType<Map>()
+                                              .map(
+                                                (e) =>
+                                                    Map<String, dynamic>.from(
+                                                      e,
+                                                    ),
+                                              )
+                                              .toList()
+                                          : const [],
                                   themeColor: riskColor,
                                 ),
                           ),
@@ -281,6 +299,49 @@ class _MoneyCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DocumentProcessingCard extends StatelessWidget {
+  const _DocumentProcessingCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  String _summary(String key, String label) {
+    final item = data[key];
+    if (item is! Map) return '$label 확인 불가';
+    final pages = item['pages'] ?? 0;
+    final ocr = item['ocr_pages'];
+    final ocrCount = ocr is List ? ocr.length : 0;
+    return '$label $pages쪽${ocrCount > 0 ? ' · OCR $ocrCount쪽' : ''}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: AppColors.softBlue,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.description_outlined, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '${_summary('registry', '등기부')}\n${_summary('building', '건축물대장')}',
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 12.5,
+                height: 1.45,
+              ),
+            ),
           ),
         ],
       ),

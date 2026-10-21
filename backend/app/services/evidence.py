@@ -76,6 +76,7 @@ def retrieve_evidence(store, case_id: str, top_k: int, strategy: str = "plain") 
                 "doc_type": d.metadata.get("doc_type"),
                 "section": d.metadata.get("section"),
                 "rank_no": d.metadata.get("rank_no") or None,
+                "page_no": d.metadata.get("page_no") or None,
                 "text": d.page_content,
                 "distance": d.metadata["distance"],
             }

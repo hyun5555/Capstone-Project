@@ -1,5 +1,6 @@
 // lib/services/api_service.dart
 import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
@@ -190,6 +191,49 @@ class ApiService {
       return {"success": true, "data": data};
     } else {
       return {"success": false, "message": "분석 실패 (${response.statusCode})"};
+    }
+  }
+
+  static Future<Map<String, dynamic>> analyzeJeonsePdf({
+    required PlatformFile registryPdf,
+    required PlatformFile buildingPdf,
+    required String address,
+    required int deposit,
+    int? marketPrice,
+  }) async {
+    final request =
+        http.MultipartRequest('POST', endpoint('/analyze/pdf'))
+          ..fields['address'] = address
+          ..fields['deposit'] = deposit.toString();
+    if (marketPrice != null) {
+      request.fields['marketPrice'] = marketPrice.toString();
+    }
+
+    request.files.addAll([
+      http.MultipartFile.fromBytes(
+        'registry_pdf',
+        await registryPdf.xFile.readAsBytes(),
+        filename: registryPdf.name,
+      ),
+      http.MultipartFile.fromBytes(
+        'building_pdf',
+        await buildingPdf.xFile.readAsBytes(),
+        filename: buildingPdf.name,
+      ),
+    ]);
+
+    try {
+      final response = await http.Response.fromStream(await request.send());
+      final body = _jsonObject(response);
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': body};
+      }
+      return {
+        'success': false,
+        'message': body['detail'] ?? '분석 실패 (${response.statusCode})',
+      };
+    } catch (_) {
+      return {'success': false, 'message': '서버에 연결할 수 없습니다.'};
     }
   }
 }

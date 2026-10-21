@@ -40,6 +40,7 @@ class Section:
     name: str
     text: str
     rank_no: Optional[str] = None
+    page_no: Optional[int] = None
 
 
 @dataclass
@@ -88,9 +89,9 @@ def parse_amount_won(text: str) -> int:
     """
     if not text:
         return 0
-    m = re.search(r"(\d[\d,]*)\s*원", text)
+    m = re.search(r"(\d[\d,./\s]*\d|\d)\s*원", text)
     if m:
-        return int(m.group(1).replace(",", ""))
+        return int(re.sub(r"\D", "", m.group(1)))
     total = 0
     matched = False
     for pattern, unit in ((r"(\d+)\s*억", 100_000_000), (r"(\d+)\s*천\s*만", 10_000_000),
