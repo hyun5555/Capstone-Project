@@ -47,7 +47,7 @@ class _RealTransactionAnalysisPageState
     try {
       final response = await http.post(
         ApiService.endpoint('/transaction/summary'),
-        headers: {'Content-Type': 'application/json'},
+        headers: await ApiService.authHeaders(),
         body: jsonEncode({
           'address': location,
           'house_type': selectedPropertyType,

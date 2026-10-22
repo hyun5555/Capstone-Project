@@ -9,6 +9,11 @@ import pymupdf
 MAX_PDF_BYTES = 20 * 1024 * 1024
 MAX_PDF_PAGES = 50
 MIN_PAGE_TEXT_CHARS = 50
+OCR_DPI = 300
+MAX_PAGE_PIXELS = 25_000_000
+MAX_PAGE_SIDE_PIXELS = 10_000
+MAX_PAGE_TEXT_CHARS = 200_000
+MAX_DOCUMENT_TEXT_CHARS = 2_000_000
 
 
 class PdfError(Exception):
@@ -59,7 +64,7 @@ def _text_length(text: str) -> int:
 def _ocr_page(page) -> str:
     try:
         tessdata = pymupdf.get_tessdata()
-        textpage = page.get_textpage_ocr(language="kor+eng", dpi=300, full=True, tessdata=tessdata)
+        textpage = page.get_textpage_ocr(language="kor+eng", dpi=OCR_DPI, full=True, tessdata=tessdata)
         return page.get_text("text", textpage=textpage, sort=True).strip()
     except Exception as exc:
         raise OcrUnavailable("OCR 실행 환경(Tesseract 한국어 데이터)을 확인할 수 없습니다.") from exc
@@ -86,7 +91,12 @@ def extract_pdf(data: bytes) -> ExtractedPdf:
 
         pages: list[ExtractedPage] = []
         warnings: list[str] = []
+        total_text_chars = 0
         for index, page in enumerate(document):
+            width = int(page.rect.width / 72 * OCR_DPI)
+            height = int(page.rect.height / 72 * OCR_DPI)
+            if width > MAX_PAGE_SIDE_PIXELS or height > MAX_PAGE_SIDE_PIXELS or width * height > MAX_PAGE_PIXELS:
+                raise PdfTooLarge(f"{index + 1}페이지 크기가 너무 커서 안전하게 처리할 수 없습니다.")
             text = page.get_text("text", sort=True).strip()
             method = "text"
             if _text_length(text) < MIN_PAGE_TEXT_CHARS:
@@ -94,6 +104,11 @@ def extract_pdf(data: bytes) -> ExtractedPdf:
                 method = "ocr"
                 if _text_length(text) < MIN_PAGE_TEXT_CHARS:
                     warnings.append(f"{index + 1}페이지에서 충분한 글자를 읽지 못했습니다.")
+            if len(text) > MAX_PAGE_TEXT_CHARS:
+                raise PdfTooLarge(f"{index + 1}페이지의 텍스트가 너무 많습니다.")
+            total_text_chars += len(text)
+            if total_text_chars > MAX_DOCUMENT_TEXT_CHARS:
+                raise PdfTooLarge("PDF의 전체 텍스트가 너무 많습니다.")
             pages.append(ExtractedPage(index + 1, text, method))
 
         if not any(_text_length(page.text) for page in pages):

@@ -1,16 +1,18 @@
 import os
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pymupdf
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-bytes-long")
 
 from app.api.endpoints import analyze as analyze_endpoint
+from app.services.auth import get_current_user
 from app.services.chunk_store import ChunkStore
 from app.services.chunker import chunk_document
 from app.services.document_source import load_pdf_documents
@@ -123,8 +125,20 @@ class PdfPipelineTest(unittest.TestCase):
         app = FastAPI()
         app.include_router(analyze_endpoint.router, prefix="/analyze")
         client = TestClient(app)
+        anonymous = client.post(
+            "/analyze/pdf",
+            files={
+                "registry_pdf": ("registry.pdf", fixture("registry_safe.pdf"), "application/pdf"),
+                "building_pdf": ("building.pdf", fixture("building_safe.pdf"), "application/pdf"),
+            },
+            data={"address": ADDRESS, "deposit": "300000000"},
+        )
+        self.assertEqual(anonymous.status_code, 401)
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(user_id="user-test")
         with patch("app.api.endpoints.analyze.OPENAI_API_KEY", ""), patch(
             "app.services.risk_score.check_defaulter", return_value=False
+        ), patch.object(
+            analyze_endpoint, "_store_completed_job", AsyncMock(return_value="job-test")
         ):
             response = client.post(
                 "/analyze/pdf",

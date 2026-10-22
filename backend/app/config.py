@@ -8,14 +8,34 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 ENV_PATH = BACKEND_DIR / ".env"
 
 load_dotenv(dotenv_path=ENV_PATH)
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not DATABASE_URL or not SECRET_KEY:
     raise RuntimeError("DATABASE_URL과 SECRET_KEY 환경변수가 필요합니다")
+if len(SECRET_KEY.encode("utf-8")) < 32:
+    raise RuntimeError("SECRET_KEY는 32바이트 이상이어야 합니다")
 
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
+if ALGORITHM != "HS256":
+    raise RuntimeError("ALGORITHM은 HS256만 사용할 수 있습니다")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://localhost:5173,http://127.0.0.1:8000",
+    ).split(",")
+    if origin.strip()
+]
+MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(42 * 1024 * 1024)))
+AUTH_RATE_LIMIT_PER_MINUTE = int(os.getenv("AUTH_RATE_LIMIT_PER_MINUTE", "10"))
+API_RATE_LIMIT_PER_MINUTE = int(os.getenv("API_RATE_LIMIT_PER_MINUTE", "60"))
+ANALYSIS_RATE_LIMIT_PER_MINUTE = int(os.getenv("ANALYSIS_RATE_LIMIT_PER_MINUTE", "5"))
+PDF_ANALYSIS_CONCURRENCY = int(os.getenv("PDF_ANALYSIS_CONCURRENCY", "2"))
+PDF_ANALYSIS_TIMEOUT_SEC = int(os.getenv("PDF_ANALYSIS_TIMEOUT_SEC", "180"))
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-5.6-luna")

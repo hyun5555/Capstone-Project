@@ -56,7 +56,7 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     if args.dry_run:
         os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-        os.environ.setdefault("SECRET_KEY", "dry-run")
+        os.environ.setdefault("SECRET_KEY", "dry-run-secret-key-at-least-32-bytes")
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
     from app.config import (

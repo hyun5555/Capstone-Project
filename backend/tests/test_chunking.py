@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-bytes-long")
 
 from app.services.chunk_store import ChunkStore, case_filter
 from app.services.chunker import case_id_for, chunk_document, split_text

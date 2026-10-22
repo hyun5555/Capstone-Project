@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
@@ -10,6 +11,14 @@ class ApiService {
   );
 
   static Uri endpoint(String path) => Uri.parse('$baseUrl$path');
+
+  static Future<Map<String, String>> authHeaders({bool json = true}) async {
+    final token = (await SharedPreferences.getInstance()).getString('token');
+    return {
+      if (json) 'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   static Map<String, dynamic> _jsonObject(http.Response response) {
     try {
@@ -81,7 +90,7 @@ class ApiService {
     try {
       final response = await http.post(
         endpoint('/chatbot/chat'),
-        headers: {"Content-Type": "application/json"},
+        headers: await authHeaders(),
         body: jsonEncode({
           "message": userMessage,
           if (stage != null) "stage": stage,
@@ -109,14 +118,9 @@ class ApiService {
     }
   }
 
-  // 로그인된 유저의 email 기반으로 정보 조회
-  static Future<Map<String, dynamic>> getUserByEmail(
-    String email,
-    String token,
-  ) async {
-    final uri = endpoint(
-      '/users/by-email',
-    ).replace(queryParameters: {'email': email});
+  // 로그인된 유저 정보 조회
+  static Future<Map<String, dynamic>> getCurrentUser(String token) async {
+    final uri = endpoint('/users/me');
     final resp = await http.get(
       uri,
       headers: {"Authorization": "Bearer $token"},
@@ -174,7 +178,7 @@ class ApiService {
     final url = endpoint('/analyze/');
     final response = await http.post(
       url,
-      headers: {"Content-Type": "application/json"},
+      headers: await authHeaders(),
       body: jsonEncode({
         "address": address,
         "deposit": deposit,
@@ -202,9 +206,10 @@ class ApiService {
     int? marketPrice,
   }) async {
     final request =
-        http.MultipartRequest('POST', endpoint('/analyze/pdf'))
+        http.MultipartRequest('POST', endpoint('/analyze/pdf/jobs'))
           ..fields['address'] = address
           ..fields['deposit'] = deposit.toString();
+    request.headers.addAll(await authHeaders(json: false));
     if (marketPrice != null) {
       request.fields['marketPrice'] = marketPrice.toString();
     }
@@ -225,7 +230,7 @@ class ApiService {
     try {
       final response = await http.Response.fromStream(await request.send());
       final body = _jsonObject(response);
-      if (response.statusCode == 200) {
+      if (response.statusCode == 202) {
         return {'success': true, 'data': body};
       }
       return {
@@ -234,6 +239,25 @@ class ApiService {
       };
     } catch (_) {
       return {'success': false, 'message': '서버에 연결할 수 없습니다.'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> fetchPdfAnalysisJob(String jobId) async {
+    try {
+      final response = await http.get(
+        endpoint('/analyze/pdf/jobs/$jobId'),
+        headers: await authHeaders(json: false),
+      );
+      final body = _jsonObject(response);
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': body};
+      }
+      return {
+        'success': false,
+        'message': body['detail'] ?? '분석 상태 조회 실패 (${response.statusCode})',
+      };
+    } catch (_) {
+      return {'success': false, 'message': '분석 상태를 확인할 수 없습니다.'};
     }
   }
 }

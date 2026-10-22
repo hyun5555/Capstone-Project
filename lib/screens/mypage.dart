@@ -34,7 +34,7 @@ class _MyPageState extends State<MyPage> {
       return;
     }
 
-    final result = await ApiService.getUserByEmail(storedEmail, token);
+    final result = await ApiService.getCurrentUser(token);
     if (!mounted) return;
     if (result["success"] == true) {
       final data = result["data"];

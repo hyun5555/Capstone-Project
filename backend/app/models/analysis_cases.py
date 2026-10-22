@@ -1,18 +1,17 @@
 # app/models/analysis_cases.py
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
-from sqlalchemy.orm import relationship
+from sqlalchemy import JSON, Column, String, ForeignKey, DateTime, func
 from app.db.session import Base
 
-class AnalysisCase(Base):
-    __tablename__ = "analysis_cases"
-    
-    analysis_id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-    main_address = Column(String(255), nullable=False)
-    detail_address = Column(String(255), nullable=True)
-    property_value = Column(Float, nullable=True)
-    estimated_price = Column(Float, nullable=True)
-    risk_summary = Column(String, nullable=True)
+
+class AnalysisJob(Base):
+    __tablename__ = "analysis_jobs"
+
+    job_id = Column(String(36), primary_key=True)
+    user_id = Column(String(255), ForeignKey("users.user_id"), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="queued", index=True)
+    stage = Column(String(100), nullable=False, default="업로드 완료")
+    case_id = Column(String(64), nullable=True, index=True)
+    result = Column(JSON, nullable=True)
+    error = Column(String(255), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
-    
-    user = relationship("User", back_populates="analysis_cases")
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

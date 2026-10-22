@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-bytes-long")
 
 from app.services.document_source import load_sample_documents
 from app.services.documents import COMPARABLE_FIELDS

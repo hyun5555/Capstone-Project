@@ -38,7 +38,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       return;
     }
 
-    final result = await ApiService.getUserByEmail(storedEmail, token);
+    final result = await ApiService.getCurrentUser(token);
     if (!mounted) return;
 
     if (result['success'] == true) {

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-bytes-long")
 
 from app.api.endpoints import property as property_api
 from app.api.endpoints import users as users_api
@@ -44,12 +44,14 @@ class AsyncCrudTest(unittest.TestCase):
         prop = SimpleNamespace(property_id=1, address="서울", detail_address=None,
                                property_value=None, estimated_price=None, risk_summary=None)
 
-        self.assertEqual(asyncio.run(users_api.read_users(db=_AsyncSession([user]))), [user])
+        self.assertEqual(asyncio.run(users_api.read_me(current_user=user)), user)
         self.assertIsNone(users_api.UserOut.model_validate(user).phone)
-        self.assertEqual(asyncio.run(property_api.read_properties(db=_AsyncSession([prop]))), [prop])
+        self.assertEqual(asyncio.run(property_api.read_properties(
+            db=_AsyncSession([prop]), current_user=user
+        )), [prop])
 
     def test_property_route_is_not_double_prefixed(self):
-        paths = {route.path for route in app.routes}
+        paths = set(app.openapi()["paths"])
         self.assertIn("/property/", paths)
         self.assertNotIn("/property/property/", paths)
 
@@ -62,7 +64,7 @@ class AsyncCrudTest(unittest.TestCase):
 
         with patch.object(property_api, "get_building_title_info", building_call), \
              patch.object(property_api, "get_registry_info", registry_call), \
-             patch.object(property_api, "upsert_property_docs") as upsert:
+             patch.object(property_api, "_upsert_property_docs") as upsert:
             result = asyncio.run(property_api.ingest_property(
                 address="서울특별시 강남구 테스트로 100",
                 road_name="서울특별시 강남구 테스트로",

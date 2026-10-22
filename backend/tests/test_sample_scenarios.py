@@ -7,7 +7,7 @@ from unittest.mock import patch
 from pydantic import ValidationError
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-bytes-long")
 
 from app.schemas.analyze import AnalyzeRequest
 from app.services.document_compare import build_findings, compare_documents, unverified_fields

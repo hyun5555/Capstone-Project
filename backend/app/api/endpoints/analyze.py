@@ -1,13 +1,20 @@
 import asyncio
+import logging
+import uuid
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from app.clients.codef_client import CodefError, get_codef_client, http_status_for
 from app.config import (
     ANALYSIS_DATA_SOURCE, CHUNK_OVERLAP, CHUNK_SIZE, CODEF_SAMPLE_DIR, OPENAI_API_KEY, RETRIEVAL_STRATEGY,
-    RETRIEVAL_TOP_K,
+    RETRIEVAL_TOP_K, PDF_ANALYSIS_CONCURRENCY, PDF_ANALYSIS_TIMEOUT_SEC,
 )
+from app.db.session import AsyncSessionLocal, get_db
+from app.models.analysis_cases import AnalysisJob
+from app.models.user import User
 from app.schemas.analyze import AnalyzeRequest
 from app.services.document_compare import MATCH, MISMATCH, UNKNOWN, build_findings, compare_documents, unverified_fields
 from app.services.document_source import (
@@ -19,8 +26,11 @@ from app.services.market_price import resolve_market_price
 from app.services.pdf_extractor import MAX_PDF_BYTES, PdfError
 from app.services.rag_explain import RIGHTS_FIELD, explain_with_evidence
 from app.services.risk_score import calculate_risk_score
+from app.services.auth import get_current_user
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+_pdf_slots = asyncio.Semaphore(max(1, PDF_ANALYSIS_CONCURRENCY))
 
 # 항목별 화면 점수. 앱은 "높을수록 위험" 으로 막대와 색을 그리므로 일치=낮게, 불일치=높게, 비교불가=중간.
 _ITEM_SCORE = {MATCH: 10, MISMATCH: 80, UNKNOWN: 50}
@@ -120,8 +130,26 @@ async def _analyze_loaded_docs(docs, address: str, deposit: int, market_price: i
     }
 
 
+async def _store_completed_job(db: AsyncSession, user_id: str, result: dict) -> str:
+    job_id = str(uuid.uuid4())
+    db.add(AnalysisJob(
+        job_id=job_id,
+        user_id=user_id,
+        status="succeeded",
+        stage="분석 완료",
+        case_id=result["data"]["case_id"],
+        result=result,
+    ))
+    await db.commit()
+    return job_id
+
+
 @router.post("/")
-async def analyze_property(data: AnalyzeRequest):
+async def analyze_property(
+    data: AnalyzeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     try:
         if ANALYSIS_DATA_SOURCE == "sample":
             docs = load_sample_documents(data.address, CODEF_SAMPLE_DIR, data.scenario)
@@ -135,13 +163,88 @@ async def analyze_property(data: AnalyzeRequest):
         raise HTTPException(status_code=http_status_for(e), detail=e.message)
     except SampleDataMissing as e:
         raise HTTPException(status_code=500, detail=str(e))
-    return await _analyze_loaded_docs(docs, data.address, data.deposit, data.marketPrice)
+    result = await _analyze_loaded_docs(docs, data.address, data.deposit, data.marketPrice)
+    result["data"]["job_id"] = await _store_completed_job(db, current_user.user_id, result)
+    return result
 
 
 async def _read_pdf(upload: UploadFile) -> bytes:
-    data = await upload.read(MAX_PDF_BYTES + 1)
-    await upload.close()
+    try:
+        data = await upload.read(MAX_PDF_BYTES + 1)
+    finally:
+        await upload.close()
+    if len(data) > MAX_PDF_BYTES:
+        raise HTTPException(status_code=413, detail="PDF는 파일당 20MB 이하여야 합니다.")
+    if not data.startswith(b"%PDF-"):
+        raise HTTPException(status_code=422, detail="PDF 파일 형식이 아닙니다.")
     return data
+
+
+async def _process_pdf(
+    registry_data: bytes,
+    building_data: bytes,
+    address: str,
+    deposit: int,
+    market_price: int = None,
+    job_id: str = None,
+):
+    if job_id:
+        await _update_job(job_id, status="processing", stage="PDF 텍스트와 OCR을 처리하는 중")
+    docs = await _load_pdf_documents_with_limits(registry_data, building_data, address)
+    if job_id:
+        await _update_job(job_id, stage="문서 근거와 위험 요소를 분석하는 중")
+    return await _analyze_loaded_docs(docs, address, deposit, market_price)
+
+
+async def _load_pdf_documents_with_limits(registry_data: bytes, building_data: bytes, address: str):
+    await _pdf_slots.acquire()
+    task = asyncio.create_task(run_in_threadpool(load_pdf_documents, registry_data, building_data, address))
+
+    def release_slot(done_task):
+        _pdf_slots.release()
+        if not done_task.cancelled():
+            done_task.exception()
+
+    # The worker thread cannot be killed safely; keep its slot until it really exits after a timeout.
+    task.add_done_callback(release_slot)
+    return await asyncio.wait_for(asyncio.shield(task), timeout=PDF_ANALYSIS_TIMEOUT_SEC)
+
+
+async def _run_with_pdf_limits(*args, **kwargs):
+    return await asyncio.wait_for(_process_pdf(*args, **kwargs), timeout=PDF_ANALYSIS_TIMEOUT_SEC)
+
+
+async def _update_job(job_id: str, **values) -> None:
+    async with AsyncSessionLocal() as db:
+        job = await db.get(AnalysisJob, job_id)
+        if job is None:
+            return
+        for key, value in values.items():
+            setattr(job, key, value)
+        await db.commit()
+
+
+async def _run_pdf_job(job_id: str, registry_data: bytes, building_data: bytes,
+                       address: str, deposit: int, market_price: int = None) -> None:
+    try:
+        result = await _run_with_pdf_limits(
+            registry_data, building_data, address, deposit, market_price, job_id=job_id
+        )
+        await _update_job(
+            job_id,
+            status="succeeded",
+            stage="분석 완료",
+            case_id=result["data"]["case_id"],
+            result=result,
+            error=None,
+        )
+    except asyncio.TimeoutError:
+        await _update_job(job_id, status="failed", stage="분석 실패", error="PDF 분석 시간이 초과되었습니다.")
+    except PdfError as exc:
+        await _update_job(job_id, status="failed", stage="분석 실패", error=str(exc))
+    except Exception:
+        logger.exception("PDF 비동기 분석 실패: job_id=%s", job_id)
+        await _update_job(job_id, status="failed", stage="분석 실패", error="PDF 분석 중 오류가 발생했습니다.")
 
 
 @router.post("/pdf")
@@ -151,12 +254,65 @@ async def analyze_pdf(
     address: str = Form(...),
     deposit: int = Form(...),
     marketPrice: int = Form(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     if not address.strip():
         raise HTTPException(status_code=422, detail="주소를 입력해 주세요.")
     registry_data, building_data = await asyncio.gather(_read_pdf(registry_pdf), _read_pdf(building_pdf))
     try:
-        docs = await run_in_threadpool(load_pdf_documents, registry_data, building_data, address.strip())
+        result = await _run_with_pdf_limits(
+            registry_data, building_data, address.strip(), deposit, marketPrice
+        )
     except PdfError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc))
-    return await _analyze_loaded_docs(docs, address.strip(), deposit, marketPrice)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="PDF 분석 시간이 초과되었습니다.")
+    result["data"]["job_id"] = await _store_completed_job(db, current_user.user_id, result)
+    return result
+
+
+@router.post("/pdf/jobs", status_code=status.HTTP_202_ACCEPTED)
+async def create_pdf_job(
+    background_tasks: BackgroundTasks,
+    registry_pdf: UploadFile = File(...),
+    building_pdf: UploadFile = File(...),
+    address: str = Form(...),
+    deposit: int = Form(..., gt=0),
+    marketPrice: int = Form(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not address.strip():
+        raise HTTPException(status_code=422, detail="주소를 입력해 주세요.")
+    registry_data, building_data = await asyncio.gather(_read_pdf(registry_pdf), _read_pdf(building_pdf))
+    job_id = str(uuid.uuid4())
+    db.add(AnalysisJob(job_id=job_id, user_id=current_user.user_id, status="queued", stage="분석 대기 중"))
+    await db.commit()
+    # shortcut: queued PDF bytes live in one API process, use durable object storage and a worker queue before multi-worker deployment.
+    background_tasks.add_task(
+        _run_pdf_job, job_id, registry_data, building_data, address.strip(), deposit, marketPrice
+    )
+    return {"job_id": job_id, "status": "queued", "stage": "분석 대기 중"}
+
+
+@router.get("/pdf/jobs/{job_id}")
+async def get_pdf_job(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(AnalysisJob).where(
+        AnalysisJob.job_id == job_id,
+        AnalysisJob.user_id == current_user.user_id,
+    ))
+    job = result.scalars().first()
+    if job is None:
+        raise HTTPException(status_code=404, detail="분석 작업을 찾을 수 없습니다.")
+    return {
+        "job_id": job.job_id,
+        "status": job.status,
+        "stage": job.stage,
+        "error": job.error,
+        "result": job.result if job.status == "succeeded" else None,
+    }

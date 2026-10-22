@@ -3,24 +3,25 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 
 from app.db.session import get_db
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash, verify_password
+from app.services.rate_limit import auth_rate_limit
 
 class SignupEmailRequest(BaseModel):
-    email: str
-    password: str
-    username: Optional[str] = None
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=72)
+    username: Optional[str] = Field(default=None, max_length=50)
     phone: Optional[str] = None  # ✅ 추가 (선택사항)
 
 class LoginEmailRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=72)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(auth_rate_limit)])
 
 # ─────────────────────────────────────
 # ✅ 이메일 회원가입
@@ -90,7 +91,7 @@ async def login_email(
     user = result.scalars().first()
 
     if not user or not verify_password(password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다")
 
     token = create_access_token({"sub": str(user.user_id)})
 

@@ -129,7 +129,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.dry_run:
         os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-        os.environ.setdefault("SECRET_KEY", "dry-run")
+        os.environ.setdefault("SECRET_KEY", "dry-run-secret-key-at-least-32-bytes")
 
     from app.config import CHUNK_OVERLAP, CHUNK_SIZE, LEGAL_CORPUS_PATH, LLM_MODEL, RETRIEVAL_TOP_K
     efforts = [value.strip() for value in args.reasoning.split(",") if value.strip()]

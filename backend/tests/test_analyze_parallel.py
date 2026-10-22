@@ -3,10 +3,10 @@ import os
 import threading
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-bytes-long")
 
 from app.api.endpoints.analyze import analyze_property
 from app.schemas.analyze import AnalyzeRequest
@@ -57,10 +57,11 @@ class AnalyzeParallelTest(unittest.TestCase):
             explain_with_evidence=explain,
             calculate_risk_score=score,
             unverified_fields=lambda *_: [],
+            _store_completed_job=AsyncMock(return_value="job-test"),
         ):
             result = asyncio.run(analyze_property(AnalyzeRequest(
                 address="합성 주소", deposit=300_000_000, marketPrice=500_000_000, scenario="safe"
-            )))
+            ), db=object(), current_user=SimpleNamespace(user_id="user-test")))
 
         self.assertTrue(result["success"])
         self.assertEqual(result["data"]["risk_grade"], "안전")

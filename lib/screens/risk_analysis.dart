@@ -22,6 +22,7 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
   PlatformFile? registryPdf;
   PlatformFile? buildingPdf;
   bool _isAnalyzing = false;
+  String _analysisStage = 'PDF를 업로드하고 있습니다.';
 
   @override
   void dispose() {
@@ -84,55 +85,95 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
       return;
     }
 
-    setState(() => _isAnalyzing = true);
-    final response = await ApiService.analyzeJeonsePdf(
+    setState(() {
+      _isAnalyzing = true;
+      _analysisStage = 'PDF를 업로드하고 있습니다.';
+    });
+    final created = await ApiService.analyzeJeonsePdf(
       registryPdf: registryPdf!,
       buildingPdf: buildingPdf!,
       address: selectedAddressData!['fullAddress'].toString(),
       deposit: deposit,
     );
     if (!mounted) return;
-
-    final envelope = response['data'];
-    final data = envelope is Map ? envelope['data'] : null;
-    if (response['success'] != true || data is! Map) {
+    final jobId =
+        created['data'] is Map ? created['data']['job_id']?.toString() : null;
+    if (created['success'] != true || jobId == null || jobId.isEmpty) {
       setState(() => _isAnalyzing = false);
-      _message('위험도 분석 실패: ${response['message'] ?? '응답 형식 오류'}');
+      _message('위험도 분석 시작 실패: ${created['message'] ?? '응답 형식 오류'}');
       return;
     }
+
+    Map? data;
+    for (var attempt = 0; attempt < 240 && mounted; attempt++) {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      final response = await ApiService.fetchPdfAnalysisJob(jobId);
+      if (!mounted) return;
+      if (response['success'] != true || response['data'] is! Map) {
+        setState(() => _isAnalyzing = false);
+        _message('위험도 분석 상태 확인 실패: ${response['message'] ?? '응답 오류'}');
+        return;
+      }
+      final job = response['data'] as Map;
+      final stage = job['stage']?.toString();
+      if (stage != null && stage.isNotEmpty && stage != _analysisStage) {
+        setState(() => _analysisStage = stage);
+      }
+      if (job['status'] == 'failed') {
+        setState(() => _isAnalyzing = false);
+        _message('위험도 분석 실패: ${job['error'] ?? '분석 중 오류가 발생했습니다.'}');
+        return;
+      }
+      if (job['status'] == 'succeeded' && job['result'] is Map) {
+        final envelope = job['result'] as Map;
+        if (envelope['data'] is Map) data = envelope['data'] as Map;
+        break;
+      }
+    }
+    if (!mounted) return;
+    if (data == null) {
+      setState(() => _isAnalyzing = false);
+      _message('위험도 분석 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    final analysisData = data;
 
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder:
             (_) => RiskResultPage(
-              address: data['address']?.toString() ?? addressController.text,
+              address:
+                  analysisData['address']?.toString() ?? addressController.text,
               deposit: deposit,
               marketPrice:
-                  data['market_price'] is Map &&
-                          data['market_price']['value_won'] is num
-                      ? (data['market_price']['value_won'] as num).toInt()
+                  analysisData['market_price'] is Map &&
+                          analysisData['market_price']['value_won'] is num
+                      ? (analysisData['market_price']['value_won'] as num)
+                          .toInt()
                       : null,
               riskScore:
-                  data['risk_score'] is num
-                      ? (data['risk_score'] as num).round()
+                  analysisData['risk_score'] is num
+                      ? (analysisData['risk_score'] as num).round()
                       : 0,
               notices:
-                  data['notes'] is List
-                      ? (data['notes'] as List)
+                  analysisData['notes'] is List
+                      ? (analysisData['notes'] as List)
                           .map((e) => e.toString())
                           .toList()
                       : const [],
               riskItems:
-                  data['risk_items'] is List
-                      ? (data['risk_items'] as List)
+                  analysisData['risk_items'] is List
+                      ? (analysisData['risk_items'] as List)
                           .whereType<Map>()
                           .map((item) => Map<String, dynamic>.from(item))
                           .toList()
                       : const [],
               documentProcessing:
-                  data['document_processing'] is Map
-                      ? Map<String, dynamic>.from(data['document_processing'])
+                  analysisData['document_processing'] is Map
+                      ? Map<String, dynamic>.from(
+                        analysisData['document_processing'],
+                      )
                       : const {},
             ),
       ),
@@ -142,7 +183,7 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isAnalyzing) return const _AnalysisLoadingScreen();
+    if (_isAnalyzing) return _AnalysisLoadingScreen(stage: _analysisStage);
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -371,18 +412,20 @@ class _StepBadge extends StatelessWidget {
 }
 
 class _AnalysisLoadingScreen extends StatelessWidget {
-  const _AnalysisLoadingScreen();
+  const _AnalysisLoadingScreen({required this.stage});
+
+  final String stage;
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 18),
-            Text('PDF를 읽고 위험 요소를 분석하고 있습니다.'),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 18),
+            Text(stage),
           ],
         ),
       ),

@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-bytes-long")
 
 from app.services.codef_normalizer import normalize_building_response, normalize_registry_response
 from app.services.document_compare import MATCH, MISMATCH, UNKNOWN, build_findings, compare_documents
