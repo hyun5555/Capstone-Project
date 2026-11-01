@@ -15,6 +15,15 @@ services:
       retries: 10
       start_period: 5s
 
+  chroma-init:
+    image: alpine:3.22
+    command: ["chown", "-R", "100:101", "/chroma"]
+    volumes:
+      - chroma_data:/chroma
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+
   api:
     build:
       context: .
@@ -29,6 +38,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      chroma-init:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       ANONYMIZED_TELEMETRY: "False"

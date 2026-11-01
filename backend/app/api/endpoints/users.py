@@ -7,7 +7,8 @@ from app.models.analysis_cases import AnalysisJob
 from app.models.property import Property
 from app.models.user import User
 from app.services.auth import get_current_user, get_password_hash, verify_password
-from sqlalchemy import delete
+from app.services.analysis_cleanup import cleanup_queued_cases, queue_case_deletions
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
@@ -92,11 +93,15 @@ async def delete_user(
 ):
     if current_user.user_id != user_id:
         raise HTTPException(status_code=403, detail="다른 사용자의 계정은 삭제할 수 없습니다.")
+    case_result = await db.execute(select(AnalysisJob.case_id).where(AnalysisJob.user_id == user_id))
+    case_ids = case_result.scalars().all()
+    await queue_case_deletions(db, case_ids)
     await db.execute(delete(AnalysisJob).where(AnalysisJob.user_id == user_id))
     await db.execute(delete(Property).where(Property.owner_id == user_id))
     await db.delete(current_user)
     await db.commit()
-    return {"detail": "User deleted"}
+    deleted_vectors = await cleanup_queued_cases(db)
+    return {"detail": "User deleted", "deleted_vectors": deleted_vectors}
 
 # ─────────────────────────────
 # ✅ 비밀번호 변경

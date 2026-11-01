@@ -1,4 +1,5 @@
 import 'package:capstone_project/screens/chat.dart';
+import 'package:capstone_project/screens/analysis_history.dart';
 import 'package:capstone_project/screens/contract_info_step.dart';
 import 'package:capstone_project/screens/create_account.dart';
 import 'package:capstone_project/screens/edit_profile.dart';
@@ -42,6 +43,7 @@ class MyApp extends StatelessWidget {
         '/real_transaction_report':
             (context) => const RealTransactionReportPage(),
         '/risk_analysis': (context) => const RiskAnalysisPage(),
+        '/analysis_history': (context) => const AnalysisHistoryPage(),
         '/risk_detail':
             (context) => const RiskDetailPage(
               title: '위험도 분석',

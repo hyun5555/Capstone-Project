@@ -18,7 +18,6 @@ httpx
 chromadb==1.5.9
 numpy<2
 posthog<6
-beautifulsoup4>=4.12,<5
 pydantic==2.11.4
 langchain-core==1.3.3
 langchain-openai==1.1.14

@@ -33,6 +33,9 @@ class _Scalars:
     def first(self):
         return self.value
 
+    def all(self):
+        return [] if self.value is None else self.value
+
 
 class _Result:
     def __init__(self, value):
@@ -65,6 +68,9 @@ class _Db:
     async def delete(self, value):
         self.deleted.append(value)
 
+    async def merge(self, _value):
+        pass
+
 
 class SecurityControlsTest(unittest.TestCase):
     def test_jwt_signature_expiry_and_user_lookup_are_enforced(self):
@@ -93,8 +99,8 @@ class SecurityControlsTest(unittest.TestCase):
         user = SimpleNamespace(user_id="user-1")
         db = _Db()
         result = asyncio.run(delete_user(user.user_id, db=db, current_user=user))
-        self.assertEqual(result, {"detail": "User deleted"})
-        self.assertEqual(len(db.statements), 2)
+        self.assertEqual(result, {"detail": "User deleted", "deleted_vectors": []})
+        self.assertEqual(len(db.statements), 4)
         self.assertEqual(db.deleted, [user])
 
     def test_property_and_pdf_job_are_owned_by_current_user(self):

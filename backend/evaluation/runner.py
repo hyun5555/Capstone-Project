@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from itertools import product
 from threading import Lock
 from typing import Callable, Dict, List, Optional
-from unittest.mock import patch
 
 from app.services.chunk_store import ChunkStore
 from app.services.document_compare import build_findings, compare_documents
@@ -97,11 +96,10 @@ def pipeline_check(name: str, item: dict, sample_dir: str) -> dict:
     docs = load_sample_documents(ADDRESS, sample_dir, name)
     comparison = compare_documents(docs.registry, docs.building)
     request, expected = item["request"], item["expected"]
-    with patch("app.services.risk_score.check_defaulter", return_value=False):   # 외부 사이트를 부르지 않는다
-        risk = calculate_risk_score(
-            build_findings(docs.registry, docs.building, comparison),
-            {"보증금": request["deposit"], "시세": request.get("marketPrice")},
-        )
+    risk = calculate_risk_score(
+        build_findings(docs.registry, docs.building, comparison),
+        {"보증금": request["deposit"], "시세": request.get("marketPrice")},
+    )
     checks = {
         "owner_status": comparison["소유자명"]["status"] == expected["owner_status"],
         "active_rights": sorted(r.type for r in docs.registry.active_rights) == sorted(expected["active_rights"]),

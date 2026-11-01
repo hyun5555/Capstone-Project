@@ -260,4 +260,92 @@ class ApiService {
       return {'success': false, 'message': '분석 상태를 확인할 수 없습니다.'};
     }
   }
+
+  static Future<Map<String, dynamic>> fetchAnalysisHistory() async {
+    try {
+      final response = await http.get(
+        endpoint('/analyze/history'),
+        headers: await authHeaders(json: false),
+      );
+      final body = _jsonObject(response);
+      return response.statusCode == 200
+          ? {'success': true, 'data': body}
+          : {
+            'success': false,
+            'message': body['detail'] ?? '분석 이력 조회 실패 (${response.statusCode})',
+          };
+    } catch (_) {
+      return {'success': false, 'message': '분석 이력을 불러올 수 없습니다.'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> fetchAnalysisHistoryItem(
+    String jobId,
+  ) async {
+    try {
+      final response = await http.get(
+        endpoint('/analyze/history/$jobId'),
+        headers: await authHeaders(json: false),
+      );
+      final body = _jsonObject(response);
+      return response.statusCode == 200
+          ? {'success': true, 'data': body}
+          : {
+            'success': false,
+            'message': body['detail'] ?? '분석 결과 조회 실패 (${response.statusCode})',
+          };
+    } catch (_) {
+      return {'success': false, 'message': '분석 결과를 불러올 수 없습니다.'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteAnalysisHistoryItem(
+    String jobId,
+  ) async {
+    return _delete('/analyze/history/$jobId');
+  }
+
+  static Future<Map<String, dynamic>> clearAnalysisHistory() async {
+    return _delete('/analyze/history');
+  }
+
+  static Future<Map<String, dynamic>> _delete(String path) async {
+    try {
+      final response = await http.delete(
+        endpoint(path),
+        headers: await authHeaders(json: false),
+      );
+      final body = _jsonObject(response);
+      return response.statusCode == 200
+          ? {'success': true, 'data': body}
+          : {
+            'success': false,
+            'message': body['detail'] ?? '삭제 실패 (${response.statusCode})',
+          };
+    } catch (_) {
+      return {'success': false, 'message': '서버에 연결할 수 없습니다.'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateAnalysisCorrections(
+    String jobId,
+    Map<String, dynamic> corrections,
+  ) async {
+    try {
+      final response = await http.patch(
+        endpoint('/analyze/history/$jobId/corrections'),
+        headers: await authHeaders(),
+        body: jsonEncode(corrections),
+      );
+      final body = _jsonObject(response);
+      return response.statusCode == 200
+          ? {'success': true, 'data': body}
+          : {
+            'success': false,
+            'message': body['detail'] ?? '수정값 저장 실패 (${response.statusCode})',
+          };
+    } catch (_) {
+      return {'success': false, 'message': '수정값을 저장할 수 없습니다.'};
+    }
+  }
 }

@@ -71,6 +71,7 @@ class PdfPipelineTest(unittest.TestCase):
 
         self.assertEqual(docs.source, "pdf")
         self.assertEqual(docs.processing["registry"]["ocr_pages"], [])
+        self.assertEqual(docs.processing["registry"]["confidence"], 1.0)
         self.assertEqual(docs.registry.owner_names, ["이임대"])
         self.assertEqual(docs.registry.max_claim_amount, 80_000_000)
         self.assertEqual(docs.building.owner_names, ["이임대"])
@@ -82,6 +83,8 @@ class PdfPipelineTest(unittest.TestCase):
         with patch("app.services.pdf_extractor._ocr_page", return_value="등기사항전부증명서 " * 5):
             result = extract_pdf(image_only)
         self.assertEqual(result.processing()["ocr_pages"], [1])
+        self.assertEqual(result.processing()["confidence_basis"], "heuristic")
+        self.assertLessEqual(result.processing()["confidence"], 0.9)
 
     def test_arbitrary_pdf_is_rejected_as_wrong_document(self):
         pdf = extract_pdf(simple_pdf())
@@ -135,9 +138,7 @@ class PdfPipelineTest(unittest.TestCase):
         )
         self.assertEqual(anonymous.status_code, 401)
         app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(user_id="user-test")
-        with patch("app.api.endpoints.analyze.OPENAI_API_KEY", ""), patch(
-            "app.services.risk_score.check_defaulter", return_value=False
-        ), patch.object(
+        with patch("app.api.endpoints.analyze.OPENAI_API_KEY", ""), patch.object(
             analyze_endpoint, "_store_completed_job", AsyncMock(return_value="job-test")
         ):
             response = client.post(

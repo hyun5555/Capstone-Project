@@ -5,6 +5,7 @@ import 'package:capstone_project/theme/app_theme.dart';
 import 'package:capstone_project/widgets/app_bottom_navigation.dart';
 
 import 'edit_profile.dart';
+import 'analysis_history.dart';
 
 class MyPage extends StatefulWidget {
   const MyPage({super.key});
@@ -124,12 +125,27 @@ class _MyPageState extends State<MyPage> {
             const SizedBox(height: 30),
 
             // 최근 조회 내역
-            Row(
-              children: const [
-                Icon(Icons.history, color: Color(0xFF8CAEF2)),
-                SizedBox(width: 8),
-                Text('최근 조회 내역', style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
+            InkWell(
+              onTap:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AnalysisHistoryPage(),
+                    ),
+                  ),
+              child: const Row(
+                children: [
+                  Icon(Icons.history, color: Color(0xFF8CAEF2)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '분석 이력',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: Colors.grey),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             Container(
@@ -141,7 +157,7 @@ class _MyPageState extends State<MyPage> {
               ),
               alignment: Alignment.center,
               child: const Text(
-                '최근 조회 내역이 없습니다.',
+                '저장·조회·삭제는 분석 이력에서 관리할 수 있습니다.',
                 style: TextStyle(color: Colors.grey),
               ),
             ),

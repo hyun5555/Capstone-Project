@@ -1,4 +1,8 @@
 # backend/app/main.py
+import asyncio
+from contextlib import suppress
+import logging
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,8 +10,12 @@ from app.api.endpoints import auth, property, users, building, registry, vector,
     analyze, chatbot, jeonse_price, address, trade_price, transaction_summary, jeonse_rate, codef_auth
 from app.config import CORS_ORIGINS, MAX_REQUEST_BYTES
 from app.db.schema import ensure_schema
+from app.db.session import AsyncSessionLocal
 from app.middleware.body_limit import BodySizeLimitMiddleware
 from app.services.rate_limit import analysis_rate_limit, protected_rate_limit, public_rate_limit
+from app.services.analysis_cleanup import purge_expired_vectors
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -30,6 +38,29 @@ app.add_middleware(BodySizeLimitMiddleware, max_bytes=MAX_REQUEST_BYTES)
 @app.on_event("startup")
 async def on_startup():
     await ensure_schema()
+    app.state.vector_retention_task = asyncio.create_task(_vector_retention_loop())
+
+
+async def _vector_retention_loop():
+    # shortcut: 현재 단일 API 프로세스용이다. multi-worker 배포 전에 싱글턴 배치로 옮긴다.
+    while True:
+        try:
+            async with AsyncSessionLocal() as db:
+                await purge_expired_vectors(db)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Chroma 보존 기간 정리 실패")
+        await asyncio.sleep(3600)
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    task = getattr(app.state, "vector_retention_task", None)
+    if task:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 # 라우터 등록
 app.include_router(auth.router, prefix="/auth", tags=["auth"])

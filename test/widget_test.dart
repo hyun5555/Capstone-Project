@@ -69,8 +69,9 @@ void main() {
             'registry': {
               'pages': 2,
               'ocr_pages': [2],
+              'confidence': 0.72,
             },
-            'building': {'pages': 1, 'ocr_pages': []},
+            'building': {'pages': 1, 'ocr_pages': [], 'confidence': 1.0},
           },
         ),
       ),
@@ -78,6 +79,34 @@ void main() {
 
     expect(find.textContaining('등기부 2쪽 · OCR 1쪽'), findsOneWidget);
     expect(find.textContaining('건축물대장 1쪽'), findsOneWidget);
+    expect(find.textContaining('읽기 신뢰도(추정) 72%'), findsOneWidget);
+  });
+
+  testWidgets('버전이 붙은 검증 위험코드를 표시한다', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: RiskResultPage(
+          address: '서울 테스트',
+          deposit: 300000000,
+          riskScore: 30,
+          riskItems: [],
+          ruleVersion: '2026.11-v1',
+          riskDisclaimer: '범죄 이력을 추정하지 않습니다.',
+          riskCodes: [
+            {
+              'code': 'REGISTRY_SEIZURE',
+              'label': '압류',
+              'status': 'detected',
+              'source': '등기부 갑구',
+            },
+          ],
+        ),
+      ),
+    );
+
+    expect(find.text('위험 규칙 2026.11-v1'), findsOneWidget);
+    expect(find.text('압류'), findsOneWidget);
+    expect(find.text('확인됨'), findsOneWidget);
   });
 
   testWidgets('shows the RAG evidence page in the detail report', (

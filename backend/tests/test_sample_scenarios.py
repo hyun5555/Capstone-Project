@@ -2,7 +2,6 @@ import json
 import os
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from pydantic import ValidationError
 
@@ -27,7 +26,7 @@ class SampleScenarioTest(unittest.TestCase):
         })
 
         for name, item in SCENARIOS.items():
-            with self.subTest(name=name), patch("app.services.risk_score.check_defaulter", return_value=False):
+            with self.subTest(name=name):
                 docs = load_sample_documents("합성 테스트 주소", str(SAMPLE_DIR), name)
                 comparison = compare_documents(docs.registry, docs.building)
                 request, expected = item["request"], item["expected"]

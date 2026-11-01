@@ -1,7 +1,7 @@
 from sqlalchemy import inspect, text
 
 from app.db.session import Base, engine
-from app.models.analysis_cases import AnalysisJob  # noqa: F401
+from app.models.analysis_cases import AnalysisJob, VectorDeletion  # noqa: F401
 from app.models.property import Property  # noqa: F401
 from app.models.user import User  # noqa: F401
 

@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {
+      "name": "deidentified_safe_registry_and_building",
+      "registry_pdf": "../tests/fixtures/registry_safe.pdf",
+      "building_pdf": "../tests/fixtures/building_safe.pdf",
+      "address": "서울특별시 강남구 테스트로 100",
+      "deposit": 300000000,
+      "market_price": 500000000,
+      "expected_grade": "안전",
+      "expected_codes": {
+        "OWNER_MISMATCH": "clear",
+        "REGISTRY_SEIZURE": "clear",
+        "REGISTRY_PROVISIONAL_SEIZURE": "clear",
+        "REGISTRY_AUCTION": "clear",
+        "PRIOR_RIGHT_REVIEW": "clear",
+        "MORTGAGE_DEPOSIT_RATIO": "clear",
+        "BUILDING_VIOLATION": "clear"
+      }
+    }
+  ]
+}

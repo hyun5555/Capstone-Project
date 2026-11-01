@@ -6,6 +6,7 @@ from starlette.concurrency import run_in_threadpool
 from app.db.session import get_db
 from app.models.analysis_cases import AnalysisJob
 from app.models.user import User
+from app.services.analysis_cleanup import purge_expired_vectors, retention_cutoff
 from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/vector", tags=["VectorDB"])
@@ -27,9 +28,11 @@ async def vector_search(
         AnalysisJob.user_id == current_user.user_id,
         AnalysisJob.case_id == case_id,
         AnalysisJob.status == "succeeded",
+        AnalysisJob.created_at >= retention_cutoff(),
     ))
     if result.scalars().first() is None:
-        raise HTTPException(status_code=404, detail="분석 건을 찾을 수 없습니다.")
+        await purge_expired_vectors(db)
+        raise HTTPException(status_code=404, detail="보존 기간 내의 분석 건을 찾을 수 없습니다.")
     from app.services.vector_db import get_chunk_store
     hits = await run_in_threadpool(lambda: get_chunk_store().search(case_id, [q], n_results=top)[0])
     return {"query": q, "case_id": case_id, "results": hits}

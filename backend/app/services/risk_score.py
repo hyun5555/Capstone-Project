@@ -10,9 +10,6 @@
 
 단위: 금액은 모두 원(₩). (실거래가 API 의 만원 단위는 market_price.py 에서 원으로 바꿔서 들어온다.)
 """
-import requests
-from bs4 import BeautifulSoup
-
 risk_factor = {
     # 세부항목 기준 가중치 (AHP 분석 기반 최종 가중치)
     "소유자불일치": {"weight": 0.1471, "severity": "심각"},
@@ -29,7 +26,7 @@ risk_factor = {
 
 OWNERSHIP_RISK_RIGHTS = ("경매개시결정", "압류", "가압류", "가처분", "가등기", "신탁")
 NON_RESIDENTIAL_CATEGORIES = ("업무", "상업", "공업", "기타")
-MAX_OWNERS_TO_CHECK = 3
+RISK_RULE_VERSION = "2026.11-v1"
 
 PRICE_UNKNOWN_REASON = "시세를 확인하지 못해 계산하지 않았습니다."
 
@@ -104,8 +101,60 @@ def _owners_mismatch(findings: dict):
     return reg != bld
 
 
-def _split_names(text):
-    return [n.strip() for n in (text or "").split(",") if n.strip()][:MAX_OWNERS_TO_CHECK]
+def _risk_code(code, label, status, source, explanation, value=None):
+    return {
+        "code": code,
+        "label": label,
+        "status": status,
+        "source": source,
+        "explanation": explanation,
+        "value": value,
+    }
+
+
+def build_risk_codes(findings: dict, ratios: dict) -> list[dict]:
+    """등기부·건축물대장에서 확인 가능한 사실만 구조화한다."""
+    rights = set(findings.get("위험_권리_목록", []) or [])
+    owner_mismatch = _owners_mismatch(findings)
+    violation = findings.get("위반건축물")
+    margin_ratio = ratios.get("근저당_보증금_합계비율")
+
+    codes = [
+        _risk_code(
+            "OWNER_MISMATCH", "소유자 불일치",
+            "unknown" if owner_mismatch is None else "detected" if owner_mismatch else "clear",
+            "등기부·건축물대장", "두 문서의 현재 소유자 표시를 비교한 결과입니다.",
+            owner_mismatch,
+        )
+    ]
+    for code, label, right in (
+        ("REGISTRY_SEIZURE", "압류", "압류"),
+        ("REGISTRY_PROVISIONAL_SEIZURE", "가압류", "가압류"),
+        ("REGISTRY_AUCTION", "경매개시결정", "경매개시결정"),
+    ):
+        detected = right in rights
+        codes.append(_risk_code(
+            code, label, "detected" if detected else "clear", "등기부 갑구",
+            f"말소되지 않은 {label} 등기 여부입니다.", detected,
+        ))
+
+    prior = sorted(rights.intersection({"전세권", "임차권"}))
+    codes.append(_risk_code(
+        "PRIOR_RIGHT_REVIEW", "선순위 권리 확인 필요", "detected" if prior else "clear", "등기부 을구",
+        "기존 전세권·임차권이 있으면 접수일과 대항력을 별도로 확인해야 합니다.", prior,
+    ))
+    codes.append(_risk_code(
+        "MORTGAGE_DEPOSIT_RATIO", "근저당·보증금 비율",
+        "unknown" if margin_ratio is None else "detected" if margin_ratio >= 80 else "clear",
+        "등기부·입력 보증금·시세",
+        "채권최고액과 보증금의 합계를 시세로 나눈 값입니다. 시세가 없으면 판단하지 않습니다.", margin_ratio,
+    ))
+    codes.append(_risk_code(
+        "BUILDING_VIOLATION", "위반건축물",
+        "unknown" if violation is None else "detected" if violation else "clear", "건축물대장",
+        "건축물대장의 위반건축물 표시 여부입니다.", violation,
+    ))
+    return codes
 
 
 def calculate_risk_score(findings: dict, transaction_data: dict = None) -> dict:
@@ -129,9 +178,7 @@ def calculate_risk_score(findings: dict, transaction_data: dict = None) -> dict:
     # 2. 기존 전세권 및 임차권 위험(복합적인 요인, 실제 위험 낮음)
     if "임차권" in rights:
         tally.add("임차권등기명령", 1.0, "임차권 등기명령 존재")
-    if any(check_defaulter(n) for n in _split_names(findings.get("등기부_소유자"))):
-        tally.add("전세권설정", 1.0, "상습 채무불이행자 공개 내역에 포함됨")
-    elif "전세권" in rights:
+    if "전세권" in rights:
         tally.add("전세권설정", 0.6, "이전 전세권 설정")
 
     # 3, 4. 시세가 있어야 계산할 수 있는 항목 (근저당 비율, 깡통 위험)
@@ -193,32 +240,6 @@ def calculate_risk_score(findings: dict, transaction_data: dict = None) -> dict:
         "skipped": tally.skipped,
         "incomplete": incomplete,
         "ratios": ratios,
+        "rule_version": RISK_RULE_VERSION,
+        "codes": build_risk_codes(findings, ratios),
     }
-
-
-# 상습 채무불이행자 명단 조회
-def check_defaulter(name_to_check):
-    if not name_to_check:
-        return False
-    url = "https://www.molit.go.kr/USR/WPGE0201/m_37180/DTL.jsp"
-    try:
-        response = requests.get(url, timeout=5)
-        response.raise_for_status()
-    except requests.RequestException:
-        return False
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-    # 페이지 구조에 따라 적절한 선택자 사용
-    table = soup.find('table')
-    if not table:
-        return False
-
-    rows = table.find_all('tr')[1:]  # 헤더를 제외한 행들
-    for row in rows:
-        cols = row.find_all('td')
-        if cols:
-            name = cols[0].get_text(strip=True)
-            if name == name_to_check:
-                return True
-
-    return False

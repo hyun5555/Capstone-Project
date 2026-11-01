@@ -123,13 +123,12 @@ def findings(**over):
     return base
 
 
-@patch("app.services.risk_score.check_defaulter", return_value=False)
 class RiskScoreTest(unittest.TestCase):
-    def test_clean_property_with_price_is_safe(self, _):
+    def test_clean_property_with_price_is_safe(self):
         r = calculate_risk_score(findings(), {"보증금": 200_000_000, "시세": 500_000_000})
         self.assertEqual((r["score"], r["grade"], r["incomplete"]), (0.0, "안전", False))
 
-    def test_unknown_price_skips_price_items_and_says_why(self, _):
+    def test_unknown_price_skips_price_items_and_says_why(self):
         r = calculate_risk_score(findings(채권최고액=300_000_000), {"보증금": 200_000_000, "시세": None})
         self.assertEqual(r["score"], 0.0)
         self.assertTrue(r["incomplete"])
@@ -138,26 +137,26 @@ class RiskScoreTest(unittest.TestCase):
         self.assertEqual(r["ratios"], {})
         self.assertNotIn("근저당이 시세 대비 과다", r["reasons"])
 
-    def test_zero_price_is_treated_as_unknown_not_as_100_percent_mortgage(self, _):
+    def test_zero_price_is_treated_as_unknown_not_as_100_percent_mortgage(self):
         r = calculate_risk_score(findings(채권최고액=100), {"보증금": 1, "시세": 0})
         self.assertTrue(r["incomplete"])
         self.assertEqual(r["score"], 0.0)
 
-    def test_missing_transaction_data_does_not_crash(self, _):
+    def test_missing_transaction_data_does_not_crash(self):
         for tx in (None, {}, {"시세": None, "보증금": None}):
             self.assertTrue(calculate_risk_score(findings(), tx)["incomplete"])
 
-    def test_unknown_price_without_mortgage_only_skips_can_tong(self, _):
+    def test_unknown_price_without_mortgage_only_skips_can_tong(self):
         r = calculate_risk_score(findings(), {"보증금": 1, "시세": None})
         self.assertEqual([s["key"] for s in r["skipped"]], ["깡통위험"])
 
-    def test_incomplete_never_reports_safe(self, _):
+    def test_incomplete_never_reports_safe(self):
         self.assertEqual(calculate_risk_score(findings(), {"보증금": 1, "시세": None})["grade"], "판단불가")
         # 다른 위험이 이미 잡혔으면 그 등급을 유지한다
         r = calculate_risk_score(findings(소유자_불일치=True), {"보증금": 1, "시세": None})
         self.assertEqual(r["grade"], "주의")
 
-    def test_mortgage_ratio_bands(self, _):
+    def test_mortgage_ratio_bands(self):
         price = 1_000_000_000
         cases = ((250_000_000, None, 0.0), (300_000_000, "근저당 있음", 7.4), (450_000_000, "근저당이 다소 높음", 14.8),
                  (600_000_000, "근저당이 시세 대비 과다", 24.7))
@@ -166,7 +165,7 @@ class RiskScoreTest(unittest.TestCase):
             self.assertAlmostEqual(r["score"], score, delta=0.11, msg=pledge)
             self.assertEqual(reason in r["reasons"], reason is not None, pledge)
 
-    def test_can_tong_uses_pledge_plus_deposit(self, _):
+    def test_can_tong_uses_pledge_plus_deposit(self):
         r = calculate_risk_score(findings(채권최고액=300_000_000), {"보증금": 500_000_000, "시세": 900_000_000})
         self.assertIn("깡통 위험 있음", r["reasons"])                       # (3억+5억)/9억 = 88.9% → 80% 이상, 90% 미만
         self.assertAlmostEqual(r["ratios"]["근저당_보증금_합계비율"], 88.9, places=1)
@@ -175,30 +174,30 @@ class RiskScoreTest(unittest.TestCase):
         r = calculate_risk_score(findings(채권최고액=100_000_000), {"보증금": 500_000_000, "시세": 900_000_000})
         self.assertFalse(any("깡통" in x for x in r["reasons"]))            # 66.7%
 
-    def test_owner_mismatch_true_false_none(self, _):
+    def test_owner_mismatch_true_false_none(self):
         self.assertIn("소유자 불일치", calculate_risk_score(findings(소유자_불일치=True), {"시세": 1})["reasons"])
         self.assertNotIn("소유자 불일치", calculate_risk_score(findings(소유자_불일치=None), {"시세": 1})["reasons"])
         self.assertNotIn("소유자 불일치", calculate_risk_score(findings(소유자_불일치=False), {"시세": 1})["reasons"])
 
-    def test_legacy_owner_names_empty_side_is_not_a_mismatch(self, _):
+    def test_legacy_owner_names_empty_side_is_not_a_mismatch(self):
         f = findings(등기부_소유자="이임대", 건축물대장_소유자="")
         del f["소유자_불일치"]
         self.assertNotIn("소유자 불일치", calculate_risk_score(f, {"시세": 1})["reasons"])
         f["건축물대장_소유자"] = "다른사람"
         self.assertIn("소유자 불일치", calculate_risk_score(f, {"시세": 1})["reasons"])
 
-    def test_violation_none_is_not_counted_true_is(self, _):
+    def test_violation_none_is_not_counted_true_is(self):
         self.assertNotIn("위반건축물 중대", calculate_risk_score(findings(위반건축물=None), {"시세": 1})["reasons"])
         self.assertIn("위반건축물 중대", calculate_risk_score(findings(위반건축물=True), {"시세": 1})["reasons"])
 
-    def test_usage_rules(self, _):
+    def test_usage_rules(self):
         for category, expected in (("주거", False), ("오피스텔", False), (None, False), ("근린생활", True),
                                    ("업무", True), ("기타", True)):
             f = findings(용도분류=category, **{"건물 용도": "주거용"})
             reasons = calculate_risk_score(f, {"시세": 1})["reasons"]
             self.assertEqual(any("불법개조" in r or "비주거" in r for r in reasons), expected, category)
 
-    def test_legacy_usage_string_without_category(self, _):
+    def test_legacy_usage_string_without_category(self):
         f = findings(**{"건물 용도": "공장"})
         del f["용도분류"]
         self.assertIn("비주거 건물", calculate_risk_score(f, {"시세": 1})["reasons"])
@@ -206,12 +205,12 @@ class RiskScoreTest(unittest.TestCase):
         del f["용도분류"]
         self.assertNotIn("비주거 건물", calculate_risk_score(f, {"시세": 1})["reasons"])
 
-    def test_ownership_risk_rights_include_provisional_disposition(self, _):
+    def test_ownership_risk_rights_include_provisional_disposition(self):
         for right in ("경매개시결정", "압류", "가압류", "가처분", "가등기", "신탁"):
             r = calculate_risk_score(findings(위험_권리_목록=[right]), {"시세": 1})
             self.assertIn("소유권 침해 요소 있음", r["reasons"], right)
 
-    def test_factors_sum_to_score_and_max_is_100(self, _):
+    def test_factors_sum_to_score_and_max_is_100(self):
         r = calculate_risk_score(
             findings(소유자_불일치=True, 위험_권리_목록=["가압류", "임차권", "전세권", "근저당권"], 채권최고액=900_000_000,
                      위반건축물=True, 용도분류="근린생활"),
@@ -220,14 +219,11 @@ class RiskScoreTest(unittest.TestCase):
         self.assertLessEqual(r["score"], 100)
         self.assertEqual(r["grade"], "매우 위험")
 
-    def test_multiple_owners_are_checked_individually(self, _):
-        seen = []
-        with patch("app.services.risk_score.check_defaulter", side_effect=lambda n: seen.append(n) or n == "박채무"):
-            r = calculate_risk_score(findings(등기부_소유자="이임대, 박채무"), {"시세": 1})
-        self.assertEqual(seen, ["이임대", "박채무"])
-        self.assertIn("상습 채무불이행자 공개 내역에 포함됨", r["reasons"])
+    def test_owner_name_never_creates_a_criminal_or_defaulter_signal(self):
+        r = calculate_risk_score(findings(등기부_소유자="이임대, 박채무"), {"시세": 1})
+        self.assertFalse(any("채무불이행" in reason or "범죄" in reason for reason in r["reasons"]))
 
-    def test_old_prior_jeonse_right_is_partial(self, _):
+    def test_old_prior_jeonse_right_is_partial(self):
         r = calculate_risk_score(findings(위험_권리_목록=["전세권"]), {"시세": 1})
         self.assertEqual(r["factors"][0]["points"], round(0.0690 * 100 * 0.6, 1))
 
@@ -249,14 +245,25 @@ class FindingsTest(unittest.TestCase):
         reg.usage = None
         self.assertIsNone(build_findings(reg, bld, compare_documents(reg, bld))["용도분류"])
 
-    @patch("app.services.risk_score.check_defaulter", return_value=False)
-    def test_sample_end_to_end_score(self, _):
+    def test_sample_end_to_end_score(self):
         reg, bld = sample_docs()
         f = build_findings(reg, bld, compare_documents(reg, bld))
         r = calculate_risk_score(f, {"보증금": 200_000_000, "시세": 500_000_000})
         self.assertEqual(f["채권최고액"], 60_000_000)
         self.assertEqual(r["ratios"]["근저당비율"], 12.0)
         self.assertEqual(r["score"], 0.0)
+
+    def test_verifiable_risk_codes_are_versioned(self):
+        risk = calculate_risk_score(
+            findings(소유자_불일치=True, 위험_권리_목록=["압류", "가압류", "경매개시결정", "임차권"], 위반건축물=True),
+            {"보증금": 80, "시세": 100},
+        )
+        detected = {item["code"] for item in risk["codes"] if item["status"] == "detected"}
+        self.assertEqual(risk["rule_version"], "2026.11-v1")
+        self.assertTrue({
+            "OWNER_MISMATCH", "REGISTRY_SEIZURE", "REGISTRY_PROVISIONAL_SEIZURE",
+            "REGISTRY_AUCTION", "PRIOR_RIGHT_REVIEW", "MORTGAGE_DEPOSIT_RATIO", "BUILDING_VIOLATION",
+        }.issubset(detected))
 
 
 # ─────────────────────────────────────────────────────────────

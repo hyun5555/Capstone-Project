@@ -1,4 +1,5 @@
 import 'package:capstone_project/screens/risk_detail.dart';
+import 'package:capstone_project/screens/risk_correction.dart';
 import 'package:capstone_project/theme/app_theme.dart';
 import 'package:capstone_project/widgets/app_bottom_navigation.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,11 @@ class RiskResultPage extends StatelessWidget {
     required this.riskItems,
     this.notices = const [],
     this.documentProcessing = const {},
+    this.jobId,
+    this.riskCodes = const [],
+    this.reviewFields = const {},
+    this.ruleVersion,
+    this.riskDisclaimer,
   });
 
   final String address;
@@ -22,6 +28,61 @@ class RiskResultPage extends StatelessWidget {
   final List<Map<String, dynamic>> riskItems;
   final List<String> notices;
   final Map<String, dynamic> documentProcessing;
+  final String? jobId;
+  final List<Map<String, dynamic>> riskCodes;
+  final Map<String, dynamic> reviewFields;
+  final String? ruleVersion;
+  final String? riskDisclaimer;
+
+  factory RiskResultPage.fromData({
+    Key? key,
+    required Map<String, dynamic> data,
+    String? jobId,
+  }) {
+    final review =
+        data['review_fields'] is Map
+            ? Map<String, dynamic>.from(data['review_fields'])
+            : <String, dynamic>{};
+    final market = data['market_price'];
+    return RiskResultPage(
+      key: key,
+      jobId: jobId ?? data['job_id']?.toString(),
+      address: data['address']?.toString() ?? '',
+      deposit: (review['deposit'] as num?)?.toInt() ?? 0,
+      marketPrice:
+          market is Map && market['value_won'] is num
+              ? (market['value_won'] as num).toInt()
+              : (review['market_price'] as num?)?.toInt(),
+      riskScore: (data['risk_score'] as num?)?.round() ?? 0,
+      notices:
+          data['notes'] is List
+              ? (data['notes'] as List)
+                  .map((value) => value.toString())
+                  .toList()
+              : const [],
+      riskItems:
+          data['risk_items'] is List
+              ? (data['risk_items'] as List)
+                  .whereType<Map>()
+                  .map((item) => Map<String, dynamic>.from(item))
+                  .toList()
+              : const [],
+      documentProcessing:
+          data['document_processing'] is Map
+              ? Map<String, dynamic>.from(data['document_processing'])
+              : const {},
+      riskCodes:
+          data['risk_codes'] is List
+              ? (data['risk_codes'] as List)
+                  .whereType<Map>()
+                  .map((item) => Map<String, dynamic>.from(item))
+                  .toList()
+              : const [],
+      reviewFields: review,
+      ruleVersion: data['risk_rule_version']?.toString(),
+      riskDisclaimer: data['risk_disclaimer']?.toString(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +110,10 @@ class RiskResultPage extends StatelessWidget {
             if (documentProcessing.isNotEmpty) ...[
               const SizedBox(height: 12),
               _DocumentProcessingCard(data: documentProcessing),
+            ],
+            if (ruleVersion != null || riskDisclaimer != null) ...[
+              const SizedBox(height: 12),
+              _RuleInfo(version: ruleVersion, disclaimer: riskDisclaimer),
             ],
             const SizedBox(height: 12),
             Row(
@@ -113,6 +178,49 @@ class RiskResultPage extends StatelessWidget {
                             ),
                           )
                           .toList(),
+                ),
+              ),
+            ],
+            if (riskCodes.isNotEmpty) ...[
+              const SizedBox(height: 22),
+              const Text(
+                '검증 가능 위험 신호',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
+              _RiskCodesCard(codes: riskCodes),
+            ],
+            if (jobId != null && reviewFields.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.edit_note_rounded),
+                  label: const Text('OCR 추출값 확인·수정'),
+                  onPressed: () async {
+                    final updated = await Navigator.push<Map<String, dynamic>>(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) => RiskCorrectionPage(
+                              jobId: jobId!,
+                              values: reviewFields,
+                            ),
+                      ),
+                    );
+                    if (updated != null && context.mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => RiskResultPage.fromData(
+                                data: updated,
+                                jobId: jobId,
+                              ),
+                        ),
+                      );
+                    }
+                  },
                 ),
               ),
             ],
@@ -317,7 +425,11 @@ class _DocumentProcessingCard extends StatelessWidget {
     final pages = item['pages'] ?? 0;
     final ocr = item['ocr_pages'];
     final ocrCount = ocr is List ? ocr.length : 0;
-    return '$label $pages쪽${ocrCount > 0 ? ' · OCR $ocrCount쪽' : ''}';
+    final confidence = item['confidence'];
+    final confidenceText =
+        confidence is num ? ' · 읽기 신뢰도(추정) ${(confidence * 100).round()}%' : '';
+    final review = item['needs_review'] == true ? ' · 검토 필요' : '';
+    return '$label $pages쪽${ocrCount > 0 ? ' · OCR $ocrCount쪽' : ''}$confidenceText$review';
   }
 
   @override
@@ -343,6 +455,121 @@ class _DocumentProcessingCard extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RuleInfo extends StatelessWidget {
+  const _RuleInfo({this.version, this.disclaimer});
+
+  final String? version;
+  final String? disclaimer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (version != null)
+            Text(
+              '위험 규칙 $version',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          if (version != null && disclaimer != null) const SizedBox(height: 5),
+          if (disclaimer != null)
+            Text(
+              disclaimer!,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 12.5,
+                height: 1.4,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RiskCodesCard extends StatelessWidget {
+  const _RiskCodesCard({required this.codes});
+
+  final List<Map<String, dynamic>> codes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < codes.length; index++) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    codes[index]['status'] == 'detected'
+                        ? Icons.warning_amber_rounded
+                        : codes[index]['status'] == 'unknown'
+                        ? Icons.help_outline_rounded
+                        : Icons.check_circle_outline_rounded,
+                    size: 20,
+                    color:
+                        codes[index]['status'] == 'detected'
+                            ? const Color(0xFFD95C66)
+                            : codes[index]['status'] == 'unknown'
+                            ? AppColors.muted
+                            : const Color(0xFF37A66A),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          codes[index]['label']?.toString() ??
+                              codes[index]['code']?.toString() ??
+                              '',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          codes[index]['source']?.toString() ?? '',
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    codes[index]['status'] == 'detected'
+                        ? '확인됨'
+                        : codes[index]['status'] == 'unknown'
+                        ? '판단불가'
+                        : '없음',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            if (index != codes.length - 1)
+              const Divider(height: 1, color: AppColors.border),
+          ],
         ],
       ),
     );

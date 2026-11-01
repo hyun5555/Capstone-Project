@@ -37,6 +37,7 @@ class ExtractedPage:
     page_no: int
     text: str
     method: str  # "text" | "ocr"
+    confidence: float = 1.0
 
 
 @dataclass
@@ -49,16 +50,36 @@ class ExtractedPdf:
         return "\n".join(page.text for page in self.pages)
 
     def processing(self) -> dict:
+        confidence = round(sum(page.confidence for page in self.pages) / len(self.pages), 2) if self.pages else 0.0
         return {
             "pages": len(self.pages),
             "text_pages": sum(page.method == "text" for page in self.pages),
             "ocr_pages": [page.page_no for page in self.pages if page.method == "ocr"],
+            "confidence": confidence,
+            "confidence_basis": "heuristic",
+            "needs_review": any(page.confidence < 0.7 for page in self.pages),
+            "page_confidence": [
+                {"page": page.page_no, "method": page.method, "confidence": page.confidence}
+                for page in self.pages
+            ],
             "warnings": list(self.warnings),
         }
 
 
 def _text_length(text: str) -> int:
     return len(re.sub(r"\s+", "", text or ""))
+
+
+def _reading_confidence(text: str, method: str) -> float:
+    """OCR 엔진 확률이 아니라 글자량과 판독 가능한 문자 비율로 만든 검토 우선순위다."""
+    if method == "text":
+        return 1.0
+    compact = re.sub(r"\s+", "", text or "")
+    if not compact:
+        return 0.0
+    readable = len(re.findall(r"[0-9A-Za-z가-힣]", compact)) / len(compact)
+    length_score = min(len(compact) / 200, 1.0)
+    return round(min(0.9, 0.4 + readable * 0.3 + length_score * 0.2), 2)
 
 
 def _ocr_page(page) -> str:
@@ -109,7 +130,7 @@ def extract_pdf(data: bytes) -> ExtractedPdf:
             total_text_chars += len(text)
             if total_text_chars > MAX_DOCUMENT_TEXT_CHARS:
                 raise PdfTooLarge("PDF의 전체 텍스트가 너무 많습니다.")
-            pages.append(ExtractedPage(index + 1, text, method))
+            pages.append(ExtractedPage(index + 1, text, method, _reading_confidence(text, method)))
 
         if not any(_text_length(page.text) for page in pages):
             raise PdfContentError("PDF에서 분석할 텍스트를 읽지 못했습니다.")

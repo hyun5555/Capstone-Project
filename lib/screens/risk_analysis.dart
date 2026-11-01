@@ -142,39 +142,9 @@ class _RiskAnalysisPageState extends State<RiskAnalysisPage> {
       context,
       MaterialPageRoute(
         builder:
-            (_) => RiskResultPage(
-              address:
-                  analysisData['address']?.toString() ?? addressController.text,
-              deposit: deposit,
-              marketPrice:
-                  analysisData['market_price'] is Map &&
-                          analysisData['market_price']['value_won'] is num
-                      ? (analysisData['market_price']['value_won'] as num)
-                          .toInt()
-                      : null,
-              riskScore:
-                  analysisData['risk_score'] is num
-                      ? (analysisData['risk_score'] as num).round()
-                      : 0,
-              notices:
-                  analysisData['notes'] is List
-                      ? (analysisData['notes'] as List)
-                          .map((e) => e.toString())
-                          .toList()
-                      : const [],
-              riskItems:
-                  analysisData['risk_items'] is List
-                      ? (analysisData['risk_items'] as List)
-                          .whereType<Map>()
-                          .map((item) => Map<String, dynamic>.from(item))
-                          .toList()
-                      : const [],
-              documentProcessing:
-                  analysisData['document_processing'] is Map
-                      ? Map<String, dynamic>.from(
-                        analysisData['document_processing'],
-                      )
-                      : const {},
+            (_) => RiskResultPage.fromData(
+              data: Map<String, dynamic>.from(analysisData),
+              jobId: jobId,
             ),
       ),
     );

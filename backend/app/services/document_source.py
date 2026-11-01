@@ -107,6 +107,8 @@ def load_pdf_documents(registry_data: bytes, building_data: bytes, address: str)
         if result["ocr_pages"]:
             pages = ", ".join(map(str, result["ocr_pages"]))
             notes.append(f"{label} {pages}페이지는 OCR로 읽었습니다. 원본과 함께 확인하세요.")
+        if result["needs_review"]:
+            notes.append(f"{label}의 읽기 신뢰도(추정)가 낮은 페이지가 있어 추출값을 확인해 주세요.")
         notes.extend(result["warnings"])
     return LoadedDocs(
         normalize_registry_pdf(registry_pdf, address),

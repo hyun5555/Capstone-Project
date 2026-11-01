@@ -25,7 +25,7 @@ class AnalyzeParallelTest(unittest.TestCase):
             "권리사항": {"explanation": "없음", "source": "llm", "grounded": True, "evidence": []},
         }
         risk = {"score": 0.0, "grade": "안전", "reasons": [], "factors": [], "skipped": [],
-                "incomplete": False, "ratios": {}}
+                "incomplete": False, "ratios": {}, "rule_version": "test-v1", "codes": []}
 
         def compare(*_):
             first_phase.wait()

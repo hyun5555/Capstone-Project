@@ -15,3 +15,11 @@ class AnalysisJob(Base):
     error = Column(String(255), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class VectorDeletion(Base):
+    """Chroma 삭제가 일시 실패해도 개인 데이터 삭제를 재시도하기 위한 case 해시 대기열."""
+    __tablename__ = "vector_deletions"
+
+    case_id = Column(String(64), primary_key=True)
+    requested_at = Column(DateTime, server_default=func.now(), nullable=False)
